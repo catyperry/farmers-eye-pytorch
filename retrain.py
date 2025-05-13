@@ -15,6 +15,7 @@ learning_rate = 0.001
 val_pct = 0.1
 test_pct = 0.1
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {device}")
 
 # --- 2. Data transforms ---
 transform = transforms.Compose([
