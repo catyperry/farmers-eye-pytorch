@@ -13,17 +13,24 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 # --- Passing an argument for data_dir ---
 
 parser = argparse.ArgumentParser(description="Retrain a model with custom data.")
-parser.add_argument('--data_dir', type=str, required=True, help="Path to the training data directory.")
+parser.add_argument('--data_dir_train', type=str, required=True, help="Path to the input training data directory.")
 parser.add_argument('--batch_size', type=int, default=1000, help="Batch size for training (default: 1000).")
-parser.add_argument('--num_epoch', type=int, default=10, help="Number of epochs (default: 10).")
+parser.add_argument('--num_epochs', type=int, default=10, help="Number of epochs (default: 10).")
+parser.add_argument('--test85', type=bool, default=False, help="Activate accuracy on balanced (85) test data.")
+parser.add_argument('--data_dir_test85', type=str, required=False, help="Path to the input test85 data directory.")
+
 
 args = parser.parse_args()
 
+# Conditional requirement check
+if args.test and not args.data_dir_test85:
+    parser.error("--data_dir_test85 is required when --test is set to True.")
+
 # --- 1. Settings ---
-data_dir = args.data_dir  # your data path
+data_dir_train = args.data_dir_train  # your data path
 output_model_path = '/content/drive/MyDrive/farmers_eye/outputs/model.pth'
 batch_size = args.batch_size # Previously was 32
-num_epochs = args.num_epoch
+num_epochs = args.num_epochs
 learning_rate = 0.0035148759
 validation_percent = 0.1
 test_percent = 0.1
@@ -37,10 +44,11 @@ transform = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # ImageNet stats
 ])
 
-# --- 3. Load dataset ---
-train_dataset = datasets.ImageFolder(data_dir, transform=transform)
+# --- 3. Load training dataset ---
+train_dataset = datasets.ImageFolder(data_dir_train, transform=transform)
 num_classes = len(train_dataset.classes)
 print(f"Found {len(train_dataset)} images, {num_classes} classes: {train_dataset.classes}")
+
 
 
 
@@ -57,6 +65,7 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, nu
 
 # --- 5. Load pre-trained MobileNetV2 ---
 model = models.mobilenet_v2(pretrained=True)
+
 # Freeze all layers
 for param in model.parameters():
     param.requires_grad = False
@@ -99,10 +108,22 @@ for epoch in range(num_epochs):
 
 train_acc = evaluate(train_loader)
 print(f"Training Accuracy={train_acc:.4f}")
+
 # --- 8. Test accuracy ---
-#print("Evaluating on test set...")
-#test_acc = evaluate(test_loader)
-#print(f"Test accuracy: {test_acc:.4f}")
+if args.test85 == True:
+    print("Evaluating on balanced test set...")
+    data_dir_test85 = args.data_dir_test85
+
+    # --- 8a) Load test85 dataset ---
+    test85_dataset = datasets.ImageFolder(data_dir_test85, transform=transform)
+    num_classes = len(test85_dataset.classes)
+    print(f"Found {len(test85_dataset)} images, {num_classes} classes: {test85_dataset.classes}")
+
+    test85_loader = DataLoader(test85_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    
+    # --- 8b) Evaluate ---
+    test85_acc = evaluate(test85_loader)
+    print(f"Balaced test accuracy: {test85_acc:.4f}")
 
 # --- 9. Save model ---
 torch.save(model.state_dict(), output_model_path)
