@@ -5,11 +5,14 @@ import torch.optim as optim
 from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
+from PIL import ImageFile
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # --- 1. Settings ---
 data_dir = '/content/drive/MyDrive/farmers_eye/inputs/training'  # your data path
 output_model_path = '/content/drive/MyDrive/farmers_eye/outputs/model.pth'
-batch_size = 1024 # Previously was 32
+batch_size = 64 # Previously was 32
 num_epochs = 10
 learning_rate = 0.0035148759
 validation_percent = 0.1
