@@ -14,13 +14,16 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 parser = argparse.ArgumentParser(description="Retrain a model with custom data.")
 parser.add_argument('--data_dir', type=str, required=True, help="Path to the training data directory.")
+parser.add_argument('--batch_size', type=int, default=1000, help="Batch size for training (default: 1000).")
+parser.add_argument('--num_epoch', type=int, default=10, help="Number of epochs (default: 10).")
+
 args = parser.parse_args()
 
 # --- 1. Settings ---
 data_dir = args.data_dir  # your data path
 output_model_path = '/content/drive/MyDrive/farmers_eye/outputs/model.pth'
-batch_size = 64 # Previously was 32
-num_epochs = 10
+batch_size = args.batch_size # Previously was 32
+num_epochs = args.num_epoch
 learning_rate = 0.0035148759
 validation_percent = 0.1
 test_percent = 0.1
@@ -93,7 +96,7 @@ for epoch in range(num_epochs):
         running_loss += loss.item() * images.size(0)
     avg_loss = running_loss / len(train_loader.dataset)
     train_acc = evaluate(train_loader)
-    print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}s, Training Accuracy={train_acc:.4f}")
+    print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}, Training Accuracy={train_acc:.4f}")
 
 # --- 8. Test accuracy ---
 #print("Evaluating on test set...")
