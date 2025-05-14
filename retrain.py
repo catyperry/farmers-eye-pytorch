@@ -9,9 +9,9 @@ from tqdm import tqdm
 # --- 1. Settings ---
 data_dir = '/content/drive/MyDrive/farmers_eye/inputs/training'  # your data path
 output_model_path = '/content/drive/MyDrive/farmers_eye/outputs/model.pth'
-batch_size = 32
+batch_size = 1024 # Previously was 32
 num_epochs = 10
-learning_rate = 0.001
+learning_rate = 0.0035148759
 validation_percent = 0.1
 test_percent = 0.1
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -25,20 +25,20 @@ transform = transforms.Compose([
 ])
 
 # --- 3. Load dataset ---
-full_dataset = datasets.ImageFolder(data_dir, transform=transform)
-num_classes = len(full_dataset.classes)
-print(f"Found {len(full_dataset)} images, {num_classes} classes: {full_dataset.classes}")
+train_dataset = datasets.ImageFolder(data_dir, transform=transform)
+num_classes = len(train_dataset.classes)
+print(f"Found {len(train_dataset)} images, {num_classes} classes: {train_dataset.classes}")
 
 # --- 4. Split dataset ---
-n_total = len(full_dataset)
-n_test = int(test_percent * n_total)
-n_validation = int(validation_percent * n_total)
-n_train = n_total - n_validation - n_test
-train_dataset, validation_dataset, test_dataset = random_split(full_dataset, [n_train, n_validation, n_test])
+#n_total = len(full_dataset)
+#n_test = int(test_percent * n_total)
+#n_validation = int(validation_percent * n_total)
+#n_train = n_total - n_validation - n_test
+#train_dataset, validation_dataset, test_dataset = random_split(full_dataset, [n_train, n_validation, n_test])
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-validation_loader = DataLoader(validation_dataset, batch_size=batch_size)
-test_loader = DataLoader(test_dataset, batch_size=batch_size)
+#validation_loader = DataLoader(validation_dataset, batch_size=batch_size)
+#test_loader = DataLoader(test_dataset, batch_size=batch_size)
 
 # --- 5. Load pre-trained MobileNetV2 ---
 model = models.mobilenet_v2(pretrained=True)
@@ -51,7 +51,9 @@ model = model.to(device)
 
 # --- 6. Loss and optimizer ---
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.classifier[1].parameters(), lr=learning_rate)
+#optimizer = optim.Adam(model.classifier[1].parameters(), lr=learning_rate)
+optimizer = optim.SGD(model.classifier[1].parameters(), lr=learning_rate, momentum=0.0) # Used in paper: Gradient descent
+
 
 # --- 7. Training loop ---
 def evaluate(loader):
