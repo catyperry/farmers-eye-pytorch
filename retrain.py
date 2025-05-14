@@ -9,8 +9,14 @@ from PIL import ImageFile
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+# --- Passing an argument for data_dir ---
+
+parser = argparse.ArgumentParser(description="Retrain a model with custom data.")
+parser.add_argument('--data_dir', type=str, required=True, help="Path to the training data directory.")
+args = parser.parse_args()
+
 # --- 1. Settings ---
-data_dir = '/content/drive/MyDrive/farmers_eye/inputs/training'  # your data path
+data_dir = args.data_dir  # your data path
 output_model_path = '/content/drive/MyDrive/farmers_eye/outputs/model.pth'
 batch_size = 64 # Previously was 32
 num_epochs = 10
