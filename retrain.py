@@ -12,8 +12,8 @@ output_model_path = '/content/drive/MyDrive/farmers_eye/outputs/model.pth'
 batch_size = 32
 num_epochs = 10
 learning_rate = 0.001
-val_pct = 0.1
-test_pct = 0.1
+validation_percent = 0.1
+test_percent = 0.1
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
@@ -31,14 +31,14 @@ print(f"Found {len(full_dataset)} images, {num_classes} classes: {full_dataset.c
 
 # --- 4. Split dataset ---
 n_total = len(full_dataset)
-n_test = int(test_pct * n_total)
-n_val = int(val_pct * n_total)
-n_train = n_total - n_val - n_test
-train_ds, val_ds, test_ds = random_split(full_dataset, [n_train, n_val, n_test])
+n_test = int(test_percent * n_total)
+n_validation = int(validation_percent * n_total)
+n_train = n_total - n_validation - n_test
+train_dataset, validation_dataset, test_dataset = random_split(full_dataset, [n_train, n_validation, n_test])
 
-train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
-val_loader = DataLoader(val_ds, batch_size=batch_size)
-test_loader = DataLoader(test_ds, batch_size=batch_size)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+validation_loader = DataLoader(validation_dataset, batch_size=batch_size)
+test_loader = DataLoader(test_dataset, batch_size=batch_size)
 
 # --- 5. Load pre-trained MobileNetV2 ---
 model = models.mobilenet_v2(pretrained=True)
@@ -78,10 +78,11 @@ for epoch in range(num_epochs):
         optimizer.step()
         running_loss += loss.item() * images.size(0)
     avg_loss = running_loss / len(train_loader.dataset)
-    val_acc = evaluate(val_loader)
-    print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}, Val Acc={val_acc:.4f}")
+    val_acc = evaluate(validation_loader)
+    print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}, Validation Accuracy={val_acc:.4f}")
 
 # --- 8. Test accuracy ---
+print("Evaluating on test set...")
 test_acc = evaluate(test_loader)
 print(f"Test accuracy: {test_acc:.4f}")
 
