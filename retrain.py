@@ -23,7 +23,7 @@ parser.add_argument('--data_dir_test85', type=str, required=False, help="Path to
 args = parser.parse_args()
 
 # Conditional requirement check
-if args.test and not args.data_dir_test85:
+if args.test85 and not args.data_dir_test85:
     parser.error("--data_dir_test85 is required when --test is set to True.")
 
 # --- 1. Settings ---
