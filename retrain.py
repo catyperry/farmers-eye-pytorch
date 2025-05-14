@@ -29,6 +29,8 @@ train_dataset = datasets.ImageFolder(data_dir, transform=transform)
 num_classes = len(train_dataset.classes)
 print(f"Found {len(train_dataset)} images, {num_classes} classes: {train_dataset.classes}")
 
+
+
 # --- 4. Split dataset ---
 #n_total = len(full_dataset)
 #n_test = int(test_percent * n_total)
@@ -84,9 +86,9 @@ for epoch in range(num_epochs):
     print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}, Validation Accuracy={val_acc:.4f}")
 
 # --- 8. Test accuracy ---
-print("Evaluating on test set...")
-test_acc = evaluate(test_loader)
-print(f"Test accuracy: {test_acc:.4f}")
+#print("Evaluating on test set...")
+#test_acc = evaluate(test_loader)
+#print(f"Test accuracy: {test_acc:.4f}")
 
 # --- 9. Save model ---
 torch.save(model.state_dict(), output_model_path)
