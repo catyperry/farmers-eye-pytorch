@@ -82,8 +82,8 @@ for epoch in range(num_epochs):
         optimizer.step()
         running_loss += loss.item() * images.size(0)
     avg_loss = running_loss / len(train_loader.dataset)
-    val_acc = evaluate(validation_loader)
-    print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}, Validation Accuracy={val_acc:.4f}")
+    #val_acc = evaluate(validation_loader)
+    print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}") #s, Validation Accuracy={val_acc:.4f}")
 
 # --- 8. Test accuracy ---
 #print("Evaluating on test set...")
