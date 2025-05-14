@@ -48,7 +48,7 @@ print(f"Found {len(train_dataset)} images, {num_classes} classes: {train_dataset
 #n_train = n_total - n_validation - n_test
 #train_dataset, validation_dataset, test_dataset = random_split(full_dataset, [n_train, n_validation, n_test])
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
 #validation_loader = DataLoader(validation_dataset, batch_size=batch_size)
 #test_loader = DataLoader(test_dataset, batch_size=batch_size)
 
