@@ -7,6 +7,7 @@ from torchvision import datasets, transforms, models
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 from PIL import ImageFile
+from torchvision.models import MobileNet_V2_Weights
 
 # python retrain.py \
 #  --data_dir_train /content/training_data \
@@ -66,12 +67,13 @@ print(f"Found {len(train_dataset)} images, {num_classes} classes: {train_dataset
 #n_train = n_total - n_validation - n_test
 #train_dataset, validation_dataset, test_dataset = random_split(full_dataset, [n_train, n_validation, n_test])
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2, pin_memory=True)
 #validation_loader = DataLoader(validation_dataset, batch_size=batch_size)
 #test_loader = DataLoader(test_dataset, batch_size=batch_size)
 
 # --- 5. Load pre-trained MobileNetV2 ---
-model = models.mobilenet_v2(pretrained=True)
+# same weights as in the paper would be: IMAGENET1K_V1 instead of DEFAULT
+model = models.mobilenet_v2(weights=MobileNet_V2_Weights.DEFAULT)
 
 # Freeze all layers
 for param in model.parameters():
@@ -126,7 +128,7 @@ if args.test == True:
     num_classes = len(test_dataset.classes)
     print(f"Found {len(test_dataset)} images, {num_classes} classes: {test_dataset.classes}")
 
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=2, pin_memory=True)
     
     # --- 8b) Evaluate ---
     test_acc = evaluate(test_loader)
