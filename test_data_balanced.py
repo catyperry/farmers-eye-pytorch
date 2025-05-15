@@ -21,7 +21,7 @@ os.makedirs(temp_output_dir, exist_ok=True)
 df = pd.read_csv(csv_path)
 
 # --- Clean and get only necessary columns
-df = df[df['trainok'] == True]
+# df = df[df['trainok'] == True]
 df = df[['lc1', 'filepath_ftp']]  # lc1 is the label (B11, B12), filepath_ftp contains the name
 
 # --- Convert FTP filepath to actual filename
@@ -51,13 +51,3 @@ for _, row in tqdm(df.iterrows(), total=len(df), desc="Copying files"):
 print("\nSummary per class:")
 for label in sorted(set(df['lc1'])):
     print(f"{label}: Copied {success_count[label]}, Missing {missing_count[label]}")
-
-# Check for missing files
-missing = []
-for _, row in df.iterrows():
-    label = row['lc1'].strip()
-    filename = row['filename'].strip()
-    src = os.path.join(source_image_dir, label, filename)
-    if not os.path.exists(src):
-        missing.append(src)
-print("Missing files for B33:", [f for f in missing if '/B33/' in f])
