@@ -13,6 +13,8 @@ source_image_dir = os.path.join(base_drive_path, 'full_data_set')  # e.g., image
 csv_path = os.path.join(base_drive_path, 'full_data_set/lucasvision_MMEC_testSet85.csv')  # update this
 temp_output_dir = os.path.join(base_drive_path, 'inputs/test_balanced')
 
+os.makedirs(temp_output_dir, exist_ok=True)
+
 # --- Load CSV
 df = pd.read_csv(csv_path)
 
