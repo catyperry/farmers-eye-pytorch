@@ -5,11 +5,13 @@ import os
 import shutil
 import pandas as pd
 
+# the csv contains 85 images per class and creates a balanced test set
+
 # --- Define paths
 base_drive_path = '/content/drive/My Drive/farmers_eye'
 source_image_dir = os.path.join(base_drive_path, 'full_data_set')  # e.g., images/B11/*.jpg
 csv_path = os.path.join(base_drive_path, 'full_data_set/lucasvision_MMEC_testSet85.csv')  # update this
-temp_output_dir = os.path.join(base_drive_path, 'inputs/test85')
+temp_output_dir = os.path.join(base_drive_path, 'inputs/test_balanced')
 
 # --- Load CSV
 df = pd.read_csv(csv_path)

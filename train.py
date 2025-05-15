@@ -8,6 +8,13 @@ from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 from PIL import ImageFile
 
+# python retrain.py \
+#  --data_dir_train /content/training_data \
+#  --batch_size 1 \
+#  --num_epoch 1 \
+#  --test True \
+#  --data_dir_test /content/drive/MyDrive/farmers_eye/inputs/test_balanced
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # --- Passing an argument for data_dir ---
@@ -16,15 +23,15 @@ parser = argparse.ArgumentParser(description="Retrain a model with custom data."
 parser.add_argument('--data_dir_train', type=str, required=True, help="Path to the input training data directory.")
 parser.add_argument('--batch_size', type=int, default=1000, help="Batch size for training (default: 1000).")
 parser.add_argument('--num_epochs', type=int, default=10, help="Number of epochs (default: 10).")
-parser.add_argument('--test85', type=bool, default=False, help="Activate accuracy on balanced (85) test data.")
-parser.add_argument('--data_dir_test85', type=str, required=False, help="Path to the input test85 data directory.")
+parser.add_argument('--test', type=bool, default=False, help="Activate accuracy on balanced test data.")
+parser.add_argument('--data_dir_test', type=str, required=False, help="Path to the input test_balanced data directory.")
 
 
 args = parser.parse_args()
 
 # Conditional requirement check
-if args.test85 and not args.data_dir_test85:
-    parser.error("--data_dir_test85 is required when --test is set to True.")
+if args.test and not args.data_dir_test:
+    parser.error("--data_dir_test is required when --test is set to True.")
 
 # --- 1. Settings ---
 data_dir_train = args.data_dir_train  # your data path
@@ -110,20 +117,20 @@ train_acc = evaluate(train_loader)
 print(f"Training Accuracy={train_acc:.4f}")
 
 # --- 8. Test accuracy ---
-if args.test85 == True:
+if args.test == True:
     print("Evaluating on balanced test set...")
-    data_dir_test85 = args.data_dir_test85
+    data_dir_test = args.data_dir_test
 
-    # --- 8a) Load test85 dataset ---
-    test85_dataset = datasets.ImageFolder(data_dir_test85, transform=transform)
-    num_classes = len(test85_dataset.classes)
-    print(f"Found {len(test85_dataset)} images, {num_classes} classes: {test85_dataset.classes}")
+    # --- 8a) Load test dataset ---
+    test_dataset = datasets.ImageFolder(data_dir_test, transform=transform)
+    num_classes = len(test_dataset.classes)
+    print(f"Found {len(test_dataset)} images, {num_classes} classes: {test_dataset.classes}")
 
-    test85_loader = DataLoader(test85_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     
     # --- 8b) Evaluate ---
-    test85_acc = evaluate(test85_loader)
-    print(f"Balaced test accuracy: {test85_acc:.4f}")
+    test_acc = evaluate(test_loader)
+    print(f"Balaced test accuracy: {test_acc:.4f}")
 
 # --- 9. Save model ---
 torch.save(model.state_dict(), output_model_path)
