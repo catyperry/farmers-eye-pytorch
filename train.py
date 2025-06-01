@@ -99,6 +99,7 @@ def test(data_dir_test: str, batch_size: int, model: models.MobileNetV2, device:
 
 def main(data_dir_train: str, output_model_path: str, batch_size: int, num_epochs:int, learning_rate: float):
     # --- 1. Settings ---
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
@@ -109,9 +110,6 @@ def main(data_dir_train: str, output_model_path: str, batch_size: int, num_epoch
     train_dataset = PreprocessedTensorDataset(data_dir_train, to_device=device)
     num_classes = len(train_dataset.classes)
     print(f"Found {len(train_dataset)} images, {num_classes} classes: {train_dataset.classes}")
-
-
-
 
     # --- 4. Split dataset ---
     #n_total = len(full_dataset)
@@ -134,9 +132,12 @@ def main(data_dir_train: str, output_model_path: str, batch_size: int, num_epoch
     # Replace classifier
     model.classifier[1] = nn.Linear(model.last_channel, num_classes)
     model = model.to(device)
+    model.compile()
 
     # --- 6. Loss and optimizer ---
     criterion = nn.CrossEntropyLoss()
+    criterion.to(device)
+    criterion.compile()
     #optimizer = optim.Adam(model.classifier[1].parameters(), lr=learning_rate)
     optimizer = optim.SGD(model.classifier[1].parameters(), lr=learning_rate, momentum=0.0) # Used in paper: Gradient descent
     scaler = GradScaler()
