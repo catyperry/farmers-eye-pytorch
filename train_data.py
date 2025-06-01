@@ -7,7 +7,7 @@ import pandas as pd
 # the csv contains 400 images per class and creates a balanced training set
 
 # --- Define paths
-base_drive_path = '/content/drive/My Drive/farmers_eye'
+base_drive_path = '.'
 source_image_dir = os.path.join(base_drive_path, 'full_data_set')  # e.g., images/B11/*.jpg
 csv_path = os.path.join(base_drive_path, 'full_data_set/lucasvision_MMEC_trainSet.csv')  # update this
 temp_output_dir = os.path.join(base_drive_path, 'inputs/training')
