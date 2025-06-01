@@ -47,7 +47,8 @@ def arg_parse() -> argparse.Namespace:
     parser.add_argument('--num_epochs', type=int, default=10, help="Number of epochs (default: 10).")
     parser.add_argument('--test', type=bool, default=False, help="Activate accuracy on balanced test data.")
     parser.add_argument('--data_dir_test', type=str, required=False, help="Path to the input test_balanced data directory.")
-
+    parser.add_argument('--output_model_path', type=str, required=True, help="Path to the model for save (and resume).")
+    parser.add_argument('--resume', type=bool, default=False, help="Resume the training.")
     args = parser.parse_args()
 
     # Conditional requirement check
@@ -97,7 +98,25 @@ def test(data_dir_test: str, batch_size: int, model: models.MobileNetV2, device:
     test_acc = evaluate(test_loader, model)
     print(f"Balaced test accuracy: {test_acc:.4f}")
 
-def main(data_dir_train: str, output_model_path: str, batch_size: int, num_epochs:int, learning_rate: float):
+def save(output_model_path: str, epoch:int, model: models.MobileNetV2, optimizer: optim.SGD, scaler: GradScaler):
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'scaler_state_dict': scaler.state_dict(),
+    }, output_model_path)
+    print(f"Model saved to {output_model_path}")
+
+def load(output_model_path: str, model: models.MobileNetV2, optimizer: optim.SGD, scaler: GradScaler) -> int:
+    checkpoint = torch.load(output_model_path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    scaler.load_state_dict(checkpoint['scaler_state_dict'])
+    start_epoch = checkpoint['epoch'] + 1
+    print(f"Model loaded from {output_model_path}")
+    return start_epoch
+
+def main(data_dir_train: str, output_model_path: str, batch_size: int, num_epochs:int, learning_rate: float, resume: bool):
     # --- 1. Settings ---
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -125,13 +144,20 @@ def main(data_dir_train: str, output_model_path: str, batch_size: int, num_epoch
 
     # --- 5. Load pre-trained MobileNetV2 ---
     # same weights as in the paper would be: IMAGENET1K_V1 instead of DEFAULT
+    
     model = models.mobilenet_v2(weights=MobileNet_V2_Weights.DEFAULT)
-
     # Freeze all layers
     for param in model.parameters():
         param.requires_grad = False
     # Replace classifier
     model.classifier[1] = nn.Linear(model.last_channel, num_classes)
+    optimizer = optim.SGD(model.classifier[1].parameters(), lr=learning_rate, momentum=0.0) # Used in paper: Gradient descent
+    scaler = GradScaler()
+    start_epoch = int(0)
+
+    if resume:
+        start_epoch = load(output_model_path, model, optimizer, scaler)
+
     model = model.to(device)
     model.compile()
 
@@ -139,18 +165,17 @@ def main(data_dir_train: str, output_model_path: str, batch_size: int, num_epoch
     criterion = nn.CrossEntropyLoss()
     criterion.to(device)
     criterion.compile()
-    #optimizer = optim.Adam(model.classifier[1].parameters(), lr=learning_rate)
-    optimizer = optim.SGD(model.classifier[1].parameters(), lr=learning_rate, momentum=0.0) # Used in paper: Gradient descent
-    scaler = GradScaler()
+
 
     # --- 7. Training loop ---
-    for epoch in range(num_epochs):
+    epoch = int(0)
+    for epoch in range(start_epoch, num_epochs):
         train(train_loader, model, device, epoch, num_epochs, optimizer, criterion, scaler)
 
     train_acc = evaluate(train_loader, model)
     print(f"Training Accuracy={train_acc:.4f}")
     
-    del train_loader, train_dataset, scaler, criterion, optimizer
+    del train_loader, train_dataset
     gc.collect()
     torch.cuda.empty_cache()
 
@@ -161,15 +186,11 @@ def main(data_dir_train: str, output_model_path: str, batch_size: int, num_epoch
         torch.cuda.empty_cache()
 
     # --- 9. Save model ---
-    torch.save(model.state_dict(), output_model_path)
-    print(f"Model saved to {output_model_path}")
+    save(output_model_path, epoch, model, optimizer, scaler)
 
 
 if __name__ == "__main__":    
     args = arg_parse()
-    data_dir_train = args.data_dir_train  # your data path
     output_model_path = './outputs/model.pth'
-    batch_size = args.batch_size
-    num_epochs = args.num_epochs
     learning_rate = 0.0035148759
-    main(data_dir_train, output_model_path, batch_size, num_epochs, learning_rate)
+    main(args.data_dir_train, args.output_model_path, args.batch_size, args.num_epochs, learning_rate, args.resume)
