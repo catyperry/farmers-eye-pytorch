@@ -57,6 +57,17 @@ def arg_parse() -> argparse.Namespace:
     return args
 
 
+def evaluate(loader: DataLoader, model: models.MobileNetV2):
+    model.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for images, labels in tqdm(loader, desc=f"Evaluation"):
+            outputs = model(images)
+            _, preds = torch.max(outputs, 1)
+            correct += (preds == labels).sum().item()
+            total += labels.size(0)
+    return correct / total
+
 args = arg_parse()
 
 # --- 1. Settings ---
@@ -110,18 +121,6 @@ optimizer = optim.SGD(model.classifier[1].parameters(), lr=learning_rate, moment
 scaler = GradScaler()
 
 # --- 7. Training loop ---
-def evaluate(loader):
-    model.eval()
-    correct, total = 0, 0
-    with torch.no_grad():
-        for images, labels in loader:
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            _, preds = torch.max(outputs, 1)
-            correct += (preds == labels).sum().item()
-            total += labels.size(0)
-    return correct / total
-
 for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0
@@ -138,7 +137,7 @@ for epoch in range(num_epochs):
     avg_loss = running_loss / len(train_loader.dataset)
     print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}")
 
-train_acc = evaluate(train_loader)
+train_acc = evaluate(train_loader, model)
 print(f"Training Accuracy={train_acc:.4f}")
 
 # --- 8. Test accuracy ---
@@ -154,7 +153,7 @@ if args.test == True:
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
     
     # --- 8b) Evaluate ---
-    test_acc = evaluate(test_loader)
+    test_acc = evaluate(test_loader, model)
     print(f"Balaced test accuracy: {test_acc:.4f}")
 
 # --- 9. Save model ---
