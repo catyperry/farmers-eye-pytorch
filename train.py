@@ -3,18 +3,38 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torchvision import datasets, transforms, models
-from torch.utils.data import DataLoader, random_split
+from torchvision import models
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 from PIL import ImageFile
 from torchvision.models import MobileNet_V2_Weights
 
-# python retrain.py \
-#  --data_dir_train /content/training_data \
-#  --batch_size 1 \
-#  --num_epoch 1 \
-#  --test True \
-#  --data_dir_test /content/drive/MyDrive/farmers_eye/inputs/test_balanced
+
+class PreprocessedTensorDataset(Dataset):
+    def __init__(self, tensor_root: str, to_device: torch.device):
+        self.tensor_paths = []
+        self.to_device = to_device
+
+        # Load class index
+        self.class_to_idx = torch.load(os.path.join(tensor_root, 'class_to_idx.pt'))
+        self.classes = sorted(self.class_to_idx, key=self.class_to_idx.get)
+
+        # Collect all .pt files
+        for class_name in self.classes:
+            class_dir = os.path.join(tensor_root, class_name)
+            for file in os.listdir(class_dir):
+                if file.endswith(".pt"):
+                    self.tensor_paths.append(os.path.join(class_dir, file))
+
+    def __getitem__(self, index):
+        tensor, label = torch.load(self.tensor_paths[index])
+        if self.to_device:
+            tensor = tensor.to(self.to_device, non_blocking=True)
+            label = torch.tensor(label, device=self.to_device)
+        return tensor, label
+
+    def __len__(self):
+        return len(self.tensor_paths)
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -46,14 +66,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
 # --- 2. Data transforms ---
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),  # MobileNetV2 expects 224x224
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # ImageNet stats
-])
+# done now in preprocessing
 
 # --- 3. Load training dataset ---
-train_dataset = datasets.ImageFolder(data_dir_train, transform=transform)
+train_dataset = PreprocessedTensorDataset(data_dir_train, to_device=device)
 num_classes = len(train_dataset.classes)
 print(f"Found {len(train_dataset)} images, {num_classes} classes: {train_dataset.classes}")
 
@@ -67,7 +83,7 @@ print(f"Found {len(train_dataset)} images, {num_classes} classes: {train_dataset
 #n_train = n_total - n_validation - n_test
 #train_dataset, validation_dataset, test_dataset = random_split(full_dataset, [n_train, n_validation, n_test])
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2, pin_memory=True)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 #validation_loader = DataLoader(validation_dataset, batch_size=batch_size)
 #test_loader = DataLoader(test_dataset, batch_size=batch_size)
 
@@ -105,7 +121,7 @@ for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0
     for images, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}"):
-        images, labels = images.to(device), labels.to(device)
+        # images, labels = images.to(device), labels.to(device)
         optimizer.zero_grad()
         outputs = model(images)
         loss = criterion(outputs, labels)
@@ -124,11 +140,11 @@ if args.test == True:
     data_dir_test = args.data_dir_test
 
     # --- 8a) Load test dataset ---
-    test_dataset = datasets.ImageFolder(data_dir_test, transform=transform)
+    test_dataset = PreprocessedTensorDataset(data_dir_test, to_device=device)
     num_classes = len(test_dataset.classes)
     print(f"Found {len(test_dataset)} images, {num_classes} classes: {test_dataset.classes}")
 
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=2, pin_memory=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
     
     # --- 8b) Evaluate ---
     test_acc = evaluate(test_loader)
