@@ -68,6 +68,22 @@ def evaluate(loader: DataLoader, model: models.MobileNetV2):
             total += labels.size(0)
     return correct / total
 
+def train(loader: DataLoader, model: models.MobileNetV2, device: torch.device, epoch: int, num_epochs: int, optimizer: optim.SGD, criterion: nn.CrossEntropyLoss, scaler: GradScaler):
+    model.train()
+    running_loss = 0.0
+    for images, labels in tqdm(loader, desc=f"Epoch {epoch+1}/{num_epochs}"):
+        optimizer.zero_grad()
+        with autocast(device_type=device.type):
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+        running_loss += loss.item() * images.size(0)
+    avg_loss = running_loss / len(loader.dataset)
+    print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}")
+
+
 args = arg_parse()
 
 # --- 1. Settings ---
@@ -122,20 +138,7 @@ scaler = GradScaler()
 
 # --- 7. Training loop ---
 for epoch in range(num_epochs):
-    model.train()
-    running_loss = 0.0
-    for images, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}"):
-        # images, labels = images.to(device), labels.to(device)
-        optimizer.zero_grad()
-        with autocast(device_type=device.type):
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-        running_loss += loss.item() * images.size(0)
-    avg_loss = running_loss / len(train_loader.dataset)
-    print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}")
+    train(train_loader, model, device, epoch, num_epochs, optimizer, criterion, scaler)
 
 train_acc = evaluate(train_loader, model)
 print(f"Training Accuracy={train_acc:.4f}")
