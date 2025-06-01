@@ -145,12 +145,16 @@ def main(data_dir_train: str, data_dir_test: str, output_model_path: str, batch_
     if resume:
         start_epoch = load(output_model_path, model, optimizer, scaler)
 
+    print(f"Model to {device}")
     model = model.to(device)
+    print(f"Model compile")
     model.compile()
 
     # --- 6. Loss and optimizer ---
     criterion = nn.CrossEntropyLoss()
+    print(f"Criterion to {device}")
     criterion.to(device)
+    print(f"Criterion compile")
     criterion.compile()
 
 
