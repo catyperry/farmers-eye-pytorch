@@ -83,6 +83,19 @@ def train(loader: DataLoader, model: models.MobileNetV2, device: torch.device, e
     avg_loss = running_loss / len(loader.dataset)
     print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}")
 
+def test(data_dir_test: str, batch_size: int, model: models.MobileNetV2, device: torch.device):
+    print("Evaluating on balanced test set...")
+
+    # --- 8a) Load test dataset ---
+    test_dataset = PreprocessedTensorDataset(data_dir_test, to_device=device)
+    num_classes = len(test_dataset.classes)
+    print(f"Found {len(test_dataset)} images, {num_classes} classes: {test_dataset.classes}")
+
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+    
+    # --- 8b) Evaluate ---
+    test_acc = evaluate(test_loader, model)
+    print(f"Balaced test accuracy: {test_acc:.4f}")
 
 args = arg_parse()
 
@@ -145,19 +158,7 @@ print(f"Training Accuracy={train_acc:.4f}")
 
 # --- 8. Test accuracy ---
 if args.test == True:
-    print("Evaluating on balanced test set...")
-    data_dir_test = args.data_dir_test
-
-    # --- 8a) Load test dataset ---
-    test_dataset = PreprocessedTensorDataset(data_dir_test, to_device=device)
-    num_classes = len(test_dataset.classes)
-    print(f"Found {len(test_dataset)} images, {num_classes} classes: {test_dataset.classes}")
-
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
-    
-    # --- 8b) Evaluate ---
-    test_acc = evaluate(test_loader, model)
-    print(f"Balaced test accuracy: {test_acc:.4f}")
+    test(args.data_dir_test, batch_size, model, device)
 
 # --- 9. Save model ---
 torch.save(model.state_dict(), output_model_path)
