@@ -58,18 +58,18 @@ def arg_parse() -> argparse.Namespace:
     return args
 
 
-def evaluate(loader: DataLoader, model: models.MobileNetV2):
+def evaluate(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module) -> float:
     model.eval()
     correct, total = 0, 0
     with torch.no_grad():
-        for images, labels in tqdm(loader, desc=f"Evaluation"):
+        for images, labels in tqdm(loader, desc=f"Evaluating"):
             outputs = model(images)
             _, preds = torch.max(outputs, 1)
             correct += (preds == labels).sum().item()
             total += labels.size(0)
     return correct / total
 
-def train(loader: DataLoader, model: models.MobileNetV2, device: torch.device, epoch: int, num_epochs: int, optimizer: optim.SGD, criterion: nn.CrossEntropyLoss, scaler: GradScaler):
+def train(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module, device: torch.device, epoch: int, num_epochs: int, optimizer: optim.Optimizer, criterion: nn.Module, scaler: GradScaler):
     model.train()
     running_loss = 0.0
     for images, labels in tqdm(loader, desc=f"Epoch {epoch+1}/{num_epochs}"):
@@ -116,9 +116,8 @@ def load(output_model_path: str, model: models.MobileNetV2, optimizer: optim.SGD
     print(f"Model loaded from {output_model_path}")
     return start_epoch
 
-def main(data_dir_train: str, output_model_path: str, batch_size: int, num_epochs:int, learning_rate: float, resume: bool):
+def main(data_dir_train: str, data_dir_test: str, output_model_path: str, batch_size: int, num_epochs:int, learning_rate: float, resume: bool):
     # --- 1. Settings ---
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     torch.cuda.empty_cache()
@@ -129,23 +128,18 @@ def main(data_dir_train: str, output_model_path: str, batch_size: int, num_epoch
     # --- 3. Load training dataset ---
     train_dataset = PreprocessedTensorDataset(data_dir_train, to_device=device)
     num_classes = len(train_dataset.classes)
-    print(f"Found {len(train_dataset)} images, {num_classes} classes: {train_dataset.classes}")
+    print(f"Train Dataset: Found {len(train_dataset)} images, {num_classes} classes: {train_dataset.classes}")
+
+    test_dataset = PreprocessedTensorDataset(data_dir_test, to_device=device)
+    print(f"Test Dataset: Found {len(test_dataset)} images, { len(test_dataset.classes)} classes: {test_dataset.classes}")
 
     # --- 4. Split dataset ---
-    #n_total = len(full_dataset)
-    #n_test = int(test_percent * n_total)
-    #n_validation = int(validation_percent * n_total)
-    #n_train = n_total - n_validation - n_test
-    #train_dataset, validation_dataset, test_dataset = random_split(full_dataset, [n_train, n_validation, n_test])
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    #validation_loader = DataLoader(validation_dataset, batch_size=batch_size)
-    #test_loader = DataLoader(test_dataset, batch_size=batch_size)
+    train_loader = DataLoader[PreprocessedTensorDataset](train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader[PreprocessedTensorDataset](test_dataset, batch_size=batch_size, shuffle=True)
 
     # --- 5. Load pre-trained MobileNetV2 ---
     # same weights as in the paper would be: IMAGENET1K_V1 instead of DEFAULT
-    
-    model = models.mobilenet_v2(weights=MobileNet_V2_Weights.DEFAULT)
+    model: nn.Module = models.mobilenet_v2(weights=MobileNet_V2_Weights.DEFAULT)
     # Freeze all layers
     for param in model.parameters():
         param.requires_grad = False
