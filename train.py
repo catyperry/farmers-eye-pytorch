@@ -6,11 +6,13 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import models
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.tensorboard import SummaryWriter
 from torch.amp.autocast_mode import autocast
 from torch.amp.grad_scaler import GradScaler
 from tqdm import tqdm
 from torchvision.models import MobileNet_V2_Weights
 
+writer = SummaryWriter()
 
 class PreprocessedTensorDataset(Dataset):
     def __init__(self, tensor_root: str, to_device: torch.device):
@@ -69,10 +71,12 @@ def evaluate(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module) ->
             total += labels.size(0)
     return correct / total
 
-def train(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module, device: torch.device, epoch: int, num_epochs: int, optimizer: optim.Optimizer, criterion: nn.Module, scaler: GradScaler):
+def train(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module, device: torch.device, epoch: int, num_epochs: int, optimizer: optim.Optimizer, criterion: nn.Module, scaler: GradScaler) -> float:
     model.train()
     running_loss = 0.0
-    for images, labels in tqdm(loader, desc=f"Epoch {epoch+1}/{num_epochs}"):
+    total_len = len(loader.dataset)
+    iter_len = total_len // loader.batch_size 
+    for images, labels in tqdm(loader, total=iter_len):
         optimizer.zero_grad()
         with autocast(device_type=device.type):
             outputs = model(images)
@@ -81,22 +85,9 @@ def train(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module, devic
         scaler.step(optimizer)
         scaler.update()
         running_loss += loss.item() * images.size(0)
-    avg_loss = running_loss / len(loader.dataset)
-    print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}")
+    avg_loss = running_loss / total_len
+    return avg_loss
 
-def test(data_dir_test: str, batch_size: int, model: models.MobileNetV2, device: torch.device):
-    print("Evaluating on balanced test set...")
-
-    # --- 8a) Load test dataset ---
-    test_dataset = PreprocessedTensorDataset(data_dir_test, to_device=device)
-    num_classes = len(test_dataset.classes)
-    print(f"Found {len(test_dataset)} images, {num_classes} classes: {test_dataset.classes}")
-
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
-    
-    # --- 8b) Evaluate ---
-    test_acc = evaluate(test_loader, model)
-    print(f"Balaced test accuracy: {test_acc:.4f}")
 
 def save(output_model_path: str, epoch:int, model: models.MobileNetV2, optimizer: optim.SGD, scaler: GradScaler):
     torch.save({
@@ -116,7 +107,7 @@ def load(output_model_path: str, model: models.MobileNetV2, optimizer: optim.SGD
     print(f"Model loaded from {output_model_path}")
     return start_epoch
 
-def main(data_dir_train: str, data_dir_test: str, output_model_path: str, batch_size: int, num_epochs:int, learning_rate: float, resume: bool):
+def main(data_dir_train: str, data_dir_test: str, output_model_path: str, batch_size: int, num_epochs:int, learning_rate: float, resume: bool, test: bool):
     # --- 1. Settings ---
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
@@ -130,12 +121,14 @@ def main(data_dir_train: str, data_dir_test: str, output_model_path: str, batch_
     num_classes = len(train_dataset.classes)
     print(f"Train Dataset: Found {len(train_dataset)} images, {num_classes} classes: {train_dataset.classes}")
 
-    test_dataset = PreprocessedTensorDataset(data_dir_test, to_device=device)
-    print(f"Test Dataset: Found {len(test_dataset)} images, { len(test_dataset.classes)} classes: {test_dataset.classes}")
+    if test:
+        test_dataset = PreprocessedTensorDataset(data_dir_test, to_device=device)
+        print(f"Test Dataset: Found {len(test_dataset)} images, { len(test_dataset.classes)} classes: {test_dataset.classes}")
 
     # --- 4. Split dataset ---
     train_loader = DataLoader[PreprocessedTensorDataset](train_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader[PreprocessedTensorDataset](test_dataset, batch_size=batch_size, shuffle=True)
+    if test:
+        test_loader = DataLoader[PreprocessedTensorDataset](test_dataset, batch_size=batch_size, shuffle=True)
 
     # --- 5. Load pre-trained MobileNetV2 ---
     # same weights as in the paper would be: IMAGENET1K_V1 instead of DEFAULT
@@ -162,22 +155,27 @@ def main(data_dir_train: str, data_dir_test: str, output_model_path: str, batch_
 
 
     # --- 7. Training loop ---
+    test_every_x_epochs = 50
     epoch = int(0)
     for epoch in range(start_epoch, num_epochs):
-        train(train_loader, model, device, epoch, num_epochs, optimizer, criterion, scaler)
+        avg_loss = train(train_loader, model, device, epoch, num_epochs, optimizer, criterion, scaler)
+        writer.add_scalar('avg_loss', avg_loss, epoch)
 
-    train_acc = evaluate(train_loader, model)
-    print(f"Training Accuracy={train_acc:.4f}")
+        if test and (epoch % test_every_x_epochs) == (test_every_x_epochs-1):
+            train_acc = evaluate(test_loader, model)
+            # print(f"Test Accuracy={train_acc:.4f}")
+            writer.add_scalar('train_acc', train_acc, epoch)
+            save(output_model_path, epoch, model, optimizer, scaler)
     
+    # --- 8. Test accuracy ---
+    if test == True:
+        train_acc = evaluate(test_loader, model)
+        writer.add_scalar('train_acc', train_acc, epoch)
+        print(f"Test Accuracy={train_acc:.4f}")
+
     del train_loader, train_dataset
     gc.collect()
     torch.cuda.empty_cache()
-
-    # --- 8. Test accuracy ---
-    if args.test == True:
-        test(args.data_dir_test, batch_size, model, device)
-        gc.collect()
-        torch.cuda.empty_cache()
 
     # --- 9. Save model ---
     save(output_model_path, epoch, model, optimizer, scaler)
@@ -187,4 +185,4 @@ if __name__ == "__main__":
     args = arg_parse()
     output_model_path = './outputs/model.pth'
     learning_rate = 0.0035148759
-    main(args.data_dir_train, args.output_model_path, args.batch_size, args.num_epochs, learning_rate, args.resume)
+    main(args.data_dir_train, args.data_dir_test, args.output_model_path, args.batch_size, args.num_epochs, learning_rate, args.resume, args.test)
