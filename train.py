@@ -55,9 +55,9 @@ def evaluate(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module) ->
 def train(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module, device: torch.device, epoch: int, num_epochs: int, optimizer: optim.Optimizer, criterion: nn.Module, scaler: GradScaler) -> float:
     model.train()
     running_loss = 0.0
-    total_len = len(loader.dataset)
-    iter_len = total_len // loader.batch_size 
-    for images, labels in tqdm(loader, total=iter_len):
+    total_len = len(loader.dataset) # type: ignore
+    iter_len = total_len // (loader.batch_size or 1)
+    for images, labels in tqdm(loader, total=iter_len, desc=f"Epoch {epoch}/{num_epochs}"):
         optimizer.zero_grad()
         with autocast(device_type=device.type):
             outputs = model(images)
