@@ -86,7 +86,7 @@ def load(output_model_dir: str, model: models.MobileNetV2, optimizer: optim.SGD,
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     scaler.load_state_dict(checkpoint['scaler_state_dict'])
-    start_epoch = checkpoint['epoch'] + 1
+    start_epoch = checkpoint['epoch'] - 1
     print(f"Model loaded from {output_model_path}")
     return start_epoch
 
@@ -142,20 +142,21 @@ def main(data_dir_train: str, data_dir_test: str, output_model_dir: str, batch_s
 
 
     # --- 7. Training loop ---
-    test_every_x_epochs = 50
+    test_every_x_epochs = 20
     epoch = int(0)
-    for epoch in range(start_epoch, num_epochs):
+    for epoch in range(start_epoch+1, num_epochs+1):
         avg_loss = train(train_loader, model, device, epoch, num_epochs, optimizer, criterion, scaler)
         writer.add_scalar('avg_loss', avg_loss, epoch)
 
-        if test and (epoch % test_every_x_epochs) == (test_every_x_epochs-1):
+        if test and (epoch % test_every_x_epochs) == 0:
             train_acc = evaluate(test_loader, model)
-            # print(f"Test Accuracy={train_acc:.4f}")
             writer.add_scalar('train_acc', train_acc, epoch)
             save(output_model_dir, epoch, model, optimizer, scaler)
+            print(f"Test Accuracy={train_acc:.4f}")
     
     # --- 8. Test accuracy ---
-    if test == True:
+    # dont rerun if it just ran
+    if test and not (epoch % test_every_x_epochs) == 0:
         train_acc = evaluate(test_loader, model)
         writer.add_scalar('train_acc', train_acc, epoch)
         print(f"Test Accuracy={train_acc:.4f}")
