@@ -5,6 +5,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import models
 from torch.utils.data import DataLoader, Dataset
+from torch.amp.autocast_mode import autocast
+from torch.amp.grad_scaler import GradScaler
 from tqdm import tqdm
 from PIL import ImageFile
 from torchvision.models import MobileNet_V2_Weights
@@ -102,7 +104,7 @@ model = model.to(device)
 criterion = nn.CrossEntropyLoss()
 #optimizer = optim.Adam(model.classifier[1].parameters(), lr=learning_rate)
 optimizer = optim.SGD(model.classifier[1].parameters(), lr=learning_rate, momentum=0.0) # Used in paper: Gradient descent
-
+scaler = GradScaler()
 
 # --- 7. Training loop ---
 def evaluate(loader):
@@ -123,10 +125,12 @@ for epoch in range(num_epochs):
     for images, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}"):
         # images, labels = images.to(device), labels.to(device)
         optimizer.zero_grad()
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
+        with autocast(device_type=device.type):
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
         running_loss += loss.item() * images.size(0)
     avg_loss = running_loss / len(train_loader.dataset)
     print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}")
