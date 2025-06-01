@@ -38,23 +38,26 @@ class PreprocessedTensorDataset(Dataset):
     def __len__(self):
         return len(self.tensor_paths)
 
-ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # --- Passing an argument for data_dir ---
+def arg_parse() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Retrain a model with custom data.")
+    parser.add_argument('--data_dir_train', type=str, required=True, help="Path to the input training data directory.")
+    parser.add_argument('--batch_size', type=int, default=1000, help="Batch size for training (default: 1000).")
+    parser.add_argument('--num_epochs', type=int, default=10, help="Number of epochs (default: 10).")
+    parser.add_argument('--test', type=bool, default=False, help="Activate accuracy on balanced test data.")
+    parser.add_argument('--data_dir_test', type=str, required=False, help="Path to the input test_balanced data directory.")
 
-parser = argparse.ArgumentParser(description="Retrain a model with custom data.")
-parser.add_argument('--data_dir_train', type=str, required=True, help="Path to the input training data directory.")
-parser.add_argument('--batch_size', type=int, default=1000, help="Batch size for training (default: 1000).")
-parser.add_argument('--num_epochs', type=int, default=10, help="Number of epochs (default: 10).")
-parser.add_argument('--test', type=bool, default=False, help="Activate accuracy on balanced test data.")
-parser.add_argument('--data_dir_test', type=str, required=False, help="Path to the input test_balanced data directory.")
+    args = parser.parse_args()
+
+    # Conditional requirement check
+    if args.test and not args.data_dir_test:
+        parser.error("--data_dir_test is required when --test is set to True.")
+
+    return args
 
 
-args = parser.parse_args()
-
-# Conditional requirement check
-if args.test and not args.data_dir_test:
-    parser.error("--data_dir_test is required when --test is set to True.")
+args = arg_parse()
 
 # --- 1. Settings ---
 data_dir_train = args.data_dir_train  # your data path
