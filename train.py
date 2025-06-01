@@ -1,3 +1,4 @@
+import gc
 import os
 import argparse
 import torch
@@ -8,7 +9,6 @@ from torch.utils.data import DataLoader, Dataset
 from torch.amp.autocast_mode import autocast
 from torch.amp.grad_scaler import GradScaler
 from tqdm import tqdm
-from PIL import ImageFile
 from torchvision.models import MobileNet_V2_Weights
 
 
@@ -102,6 +102,7 @@ def main(data_dir_train: str, output_model_path: str, batch_size: int, num_epoch
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
+    torch.cuda.empty_cache()
 
     # --- 2. Data transforms ---
     # done now in preprocessing
@@ -148,10 +149,16 @@ def main(data_dir_train: str, output_model_path: str, batch_size: int, num_epoch
 
     train_acc = evaluate(train_loader, model)
     print(f"Training Accuracy={train_acc:.4f}")
+    
+    del train_loader, train_dataset, scaler, criterion, optimizer
+    gc.collect()
+    torch.cuda.empty_cache()
 
     # --- 8. Test accuracy ---
     if args.test == True:
         test(args.data_dir_test, batch_size, model, device)
+        gc.collect()
+        torch.cuda.empty_cache()
 
     # --- 9. Save model ---
     torch.save(model.state_dict(), output_model_path)
