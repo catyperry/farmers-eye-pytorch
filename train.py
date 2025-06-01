@@ -16,12 +16,12 @@ writer = SummaryWriter()
 
 class PreprocessedTensorDataset(Dataset):
     def __init__(self, tensor_root: str, to_device: torch.device):
-        self.tensor_paths = []
-        self.to_device = to_device
+        self.tensor_paths: list[str] = []
+        self.to_device: torch.device = to_device
 
         # Load class index
-        self.class_to_idx = torch.load(os.path.join(tensor_root, 'class_to_idx.pt'))
-        self.classes = sorted(self.class_to_idx, key=self.class_to_idx.get)
+        self.class_to_idx: dict[str, int] = torch.load(os.path.join(tensor_root, 'class_to_idx.pt'))
+        self.classes: list[str] = sorted(self.class_to_idx, key=self.class_to_idx.get)
 
         # Collect all .pt files
         for class_name in self.classes:
@@ -33,8 +33,8 @@ class PreprocessedTensorDataset(Dataset):
     def __getitem__(self, index):
         tensor, label = torch.load(self.tensor_paths[index])
         if self.to_device:
-            tensor = tensor.to(self.to_device, non_blocking=True)
-            label = torch.tensor(label, device=self.to_device)
+            tensor: torch.Tensor = tensor.to(self.to_device, non_blocking=True)
+            label: torch.Tensor = torch.tensor(label, device=self.to_device)
         return tensor, label
 
     def __len__(self):
