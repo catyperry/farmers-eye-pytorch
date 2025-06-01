@@ -41,25 +41,6 @@ class PreprocessedTensorDataset(Dataset):
         return len(self.tensor_paths)
 
 
-# --- Passing an argument for data_dir ---
-def arg_parse() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Retrain a model with custom data.")
-    parser.add_argument('--data_dir_train', type=str, required=True, help="Path to the input training data directory.")
-    parser.add_argument('--batch_size', type=int, default=1000, help="Batch size for training (default: 1000).")
-    parser.add_argument('--num_epochs', type=int, default=10, help="Number of epochs (default: 10).")
-    parser.add_argument('--test', type=bool, default=False, help="Activate accuracy on balanced test data.")
-    parser.add_argument('--data_dir_test', type=str, required=False, help="Path to the input test_balanced data directory.")
-    parser.add_argument('--output_model_path', type=str, required=True, help="Path to the model for save (and resume).")
-    parser.add_argument('--resume', type=bool, default=False, help="Resume the training.")
-    args = parser.parse_args()
-
-    # Conditional requirement check
-    if args.test and not args.data_dir_test:
-        parser.error("--data_dir_test is required when --test is set to True.")
-
-    return args
-
-
 def evaluate(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module) -> float:
     model.eval()
     correct, total = 0, 0
@@ -89,7 +70,8 @@ def train(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module, devic
     return avg_loss
 
 
-def save(output_model_path: str, epoch:int, model: models.MobileNetV2, optimizer: optim.SGD, scaler: GradScaler):
+def save(output_model_dir: str, epoch:int, model: models.MobileNetV2, optimizer: optim.SGD, scaler: GradScaler):
+    output_model_path = os.path.join(output_model_dir, f"{epoch:06d}_model.pth")
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
@@ -98,7 +80,8 @@ def save(output_model_path: str, epoch:int, model: models.MobileNetV2, optimizer
     }, output_model_path)
     print(f"Model saved to {output_model_path}")
 
-def load(output_model_path: str, model: models.MobileNetV2, optimizer: optim.SGD, scaler: GradScaler) -> int:
+def load(output_model_dir: str, model: models.MobileNetV2, optimizer: optim.SGD, scaler: GradScaler) -> int:
+    output_model_path = os.path.join(output_model_dir, sorted(os.listdir(output_model_dir))[-1])
     checkpoint = torch.load(output_model_path)
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -107,7 +90,7 @@ def load(output_model_path: str, model: models.MobileNetV2, optimizer: optim.SGD
     print(f"Model loaded from {output_model_path}")
     return start_epoch
 
-def main(data_dir_train: str, data_dir_test: str, output_model_path: str, batch_size: int, num_epochs:int, learning_rate: float, resume: bool, test: bool):
+def main(data_dir_train: str, data_dir_test: str, output_model_dir: str, batch_size: int, num_epochs:int, learning_rate: float, resume: bool, test: bool):
     # --- 1. Settings ---
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
@@ -143,7 +126,7 @@ def main(data_dir_train: str, data_dir_test: str, output_model_path: str, batch_
     start_epoch = int(0)
 
     if resume:
-        start_epoch = load(output_model_path, model, optimizer, scaler)
+        start_epoch = load(output_model_dir, model, optimizer, scaler)
 
     print(f"Model to {device}")
     model = model.to(device)
@@ -169,7 +152,7 @@ def main(data_dir_train: str, data_dir_test: str, output_model_path: str, batch_
             train_acc = evaluate(test_loader, model)
             # print(f"Test Accuracy={train_acc:.4f}")
             writer.add_scalar('train_acc', train_acc, epoch)
-            save(output_model_path, epoch, model, optimizer, scaler)
+            save(output_model_dir, epoch, model, optimizer, scaler)
     
     # --- 8. Test accuracy ---
     if test == True:
@@ -182,11 +165,24 @@ def main(data_dir_train: str, data_dir_test: str, output_model_path: str, batch_
     torch.cuda.empty_cache()
 
     # --- 9. Save model ---
-    save(output_model_path, epoch, model, optimizer, scaler)
+    save(output_model_dir, epoch, model, optimizer, scaler)
 
 
-if __name__ == "__main__":    
-    args = arg_parse()
-    output_model_path = './outputs/model.pth'
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Retrain a model with custom data.")
+    parser.add_argument('--output_model_dir', type=str, required=True, help="Path to the directory for the models to save (and resume).")
+    parser.add_argument('--data_dir_train', type=str, required=True, help="Path to the input training data directory.")
+    parser.add_argument('--batch_size', type=int, default=1000, help="Batch size for training (default: 1000).")
+    parser.add_argument('--num_epochs', type=int, default=10, help="Number of epochs (default: 10).")
+    parser.add_argument('--resume', type=bool, default=False, help="Resume the training.")
+    parser.add_argument('--test', type=bool, default=False, help="Activate accuracy on balanced test data.")
+    parser.add_argument('--data_dir_test', type=str, required=False, help="Path to the input test_balanced data directory.")
+    args = parser.parse_args()
+
+    # Conditional requirement check
+    if args.test and not args.data_dir_test:
+        parser.error("--data_dir_test is required when --test is set to True.")
+
     learning_rate = 0.0035148759
-    main(args.data_dir_train, args.data_dir_test, args.output_model_path, args.batch_size, args.num_epochs, learning_rate, args.resume, args.test)
+    main(args.data_dir_train, args.data_dir_test, args.output_model_dir, args.batch_size, args.num_epochs, learning_rate, args.resume, args.test)
