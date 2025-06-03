@@ -11,6 +11,7 @@ import timm
 # --- Argument parsing ---
 parser = argparse.ArgumentParser(description="Train a Vision Transformer on crop images.")
 parser.add_argument('--data_dir_train', type=str, required=True)
+parser.add_argument('--data_dir_test', type=str, required=False, default=None, description="Path to the input test data directory. If not provided, testing will be skipped.")
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--num_epochs', type=int, default=10)
 parser.add_argument('--lr', type=float, default=3e-4)
@@ -61,6 +62,26 @@ for epoch in range(args.num_epochs):
     avg_loss = running_loss / len(train_loader.dataset)
     acc = correct / total
     print(f"Epoch {epoch+1}: Loss={avg_loss:.4f}, Accuracy={acc:.4f}")
+
+
+# --- Test evaluation ---
+if args.data_dir_test:
+    def evaluate(loader, model, device):
+        model.eval()
+        correct, total = 0, 0
+        with torch.no_grad():
+            for images, labels in tqdm(loader, desc="Testing"):
+                images, labels = images.to(device), labels.to(device)
+                outputs = model(images)
+                _, preds = torch.max(outputs, 1)
+                correct += (preds == labels).sum().item()
+                total += labels.size(0)
+        return correct / total
+    test_dataset = datasets.ImageFolder(args.data_dir_test, transform=transform)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2, pin_memory=True)
+    print(f"Found {len(test_dataset)} test images, {len(test_dataset.classes)} classes: {test_dataset.classes}")
+    test_acc = evaluate(test_loader, model, device)
+    print(f"Test accuracy: {test_acc:.4f}")
 
 # --- Save model ---
 torch.save(model.state_dict(), args.output_model_path)
