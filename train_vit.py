@@ -11,7 +11,7 @@ import timm
 # --- Argument parsing ---
 parser = argparse.ArgumentParser(description="Train a Vision Transformer on crop images.")
 parser.add_argument('--data_dir_train', type=str, required=True)
-parser.add_argument('--data_dir_test', type=str, required=False, default=None, description="Path to the input test data directory. If not provided, testing will be skipped.")
+parser.add_argument('--data_dir_test', type=str, required=False, default=None, help="Path to the input test data directory. If not provided, testing will be skipped.")
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--num_epochs', type=int, default=10)
 parser.add_argument('--lr', type=float, default=3e-4)
