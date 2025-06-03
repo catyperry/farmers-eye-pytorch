@@ -132,7 +132,7 @@ if args.test == True:
     
     # --- 8b) Evaluate ---
     test_acc = evaluate(test_loader)
-    print(f"Balaced test accuracy: {test_acc:.4f}")
+    print(f"Balanced test accuracy: {test_acc:.4f}")
 
 # --- 9. Save model ---
 torch.save(model.state_dict(), output_model_path)
