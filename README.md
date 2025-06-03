@@ -1,5 +1,8 @@
 # farmers-eye-pytorch
 
+We use UV https://docs.astral.sh/uv/getting-started/installation/ instead of venv/conda/pip.
+
+
 This project aims to do a full modern rewrite of [this repository](https://github.com/Momut1/LUCASvision/tree/main) with pytorch.
 
 ## Preprocessing
