@@ -11,13 +11,12 @@ Images are already sorted via the crop calendar and are ready to use. Additional
 
 train.py: Uses MobileNet v2 via pytorch to train a CNN. Testing on test data can be switched on if wanted.
 
-Use case:
-
 ## TODOS
 
 - [x] use cases on top of file
 - [x] test85 -> balanced
 - [x] retrain -> train
 - [x] reduce structure
+- [ ] save models under dynamic names
 
 ### Script migration
