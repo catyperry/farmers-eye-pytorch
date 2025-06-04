@@ -136,7 +136,8 @@ dependencies = [
     { name = "torchvision", version = "0.22.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
     { name = "torchvision", version = "0.22.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or sys_platform == 'win32'" },
     { name = "tqdm" },
-    { name = "triton-windows" },
+    { name = "triton", marker = "sys_platform == 'linux'" },
+    { name = "triton-windows", marker = "sys_platform == 'win32'" },
 ]
 
 [package.dev-dependencies]
@@ -153,7 +154,8 @@ requires-dist = [
     { name = "torchvision", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=0.22.0" },
     { name = "torchvision", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=0.22.0", index = "https://download.pytorch.org/whl/cu128" },
     { name = "tqdm", specifier = ">=4.67.1" },
-    { name = "triton-windows", specifier = ">=3.3.1.post19" },
+    { name = "triton", marker = "sys_platform == 'linux'", specifier = ">=3.3.0" },
+    { name = "triton-windows", marker = "sys_platform == 'win32'", specifier = ">=3.3.1.post19" },
 ]
 
 [package.metadata.requires-dev]
@@ -1087,7 +1089,7 @@ name = "triton-windows"
 version = "3.3.1.post19"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "setuptools" },
+    { name = "setuptools", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or sys_platform == 'win32'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c6/c8/443ff6e9b5bdd1da6ebca5ea05343f27ccd04c91be5632d8e609523bcd85/triton_windows-3.3.1.post19-cp312-cp312-win_amd64.whl", hash = "sha256:ba04c251fb26f7a77ef18f7bed15221d14c24e60b66a023162a750517aedc216", size = 41915618, upload-time = "2025-05-30T15:12:31.032Z" },
