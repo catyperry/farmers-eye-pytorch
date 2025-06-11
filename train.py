@@ -42,6 +42,17 @@ class PreprocessedTensorDataset(Dataset):
     def __len__(self):
         return len(self.tensor_paths)
 
+# --- Path Constants for Colab ---
+# Source paths on Google Drive
+COLAB_DRIVE_DATA_TRAIN_SRC = '/content/drive/MyDrive/data/train'
+COLAB_DRIVE_DATA_TEST_SRC = '/content/drive/MyDrive/data/test'
+# Destination paths on the fast local Colab runtime
+COLAB_LOCAL_DATA_TRAIN_DEST = '/content/data_train_local'
+COLAB_LOCAL_DATA_TEST_DEST = '/content/data_test_local'
+# Persistent output directories on Google Drive
+COLAB_DRIVE_MODELS_DIR = '/content/drive/MyDrive/models'
+COLAB_DRIVE_RUNS_DIR = '/content/drive/MyDrive/runs'
+
 def is_colab():
     """Check if running in Google Colab"""
     return 'google.colab' in sys.modules
@@ -50,72 +61,47 @@ def setup_colab():
     """Setup Colab-specific configurations"""
     if is_colab():
         print("🔧 Setting up Google Colab environment...")
-        
-        # Mount Google Drive
         try:
-            from google.colab import drive # type: ignore
-            drive.mount('/content/drive', force_remount=True)
+            from google.colab import drive  # type: ignore
+            drive.mount('/content/drive')
             print("✅ Google Drive mounted successfully")
         except Exception as e:
             print(f"⚠️ Could not mount Google Drive: {e}")
-        
-        # Check GPU availability
-        if torch.cuda.is_available():
-            gpu_name = torch.cuda.get_device_name()
-            print(f"🚀 GPU available: {gpu_name}")
-            print(f"   Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
-        else:
-            print("⚠️ No GPU available - training will be slow!")
-        
         return True
     return False
 
-def copy_data_to_local(source_dir: str, use_local_copy: bool = True) -> str:
-    """Copy data from Google Drive to local storage for faster access"""
-    if not is_colab() or not use_local_copy:
-        return source_dir
-    
+def copy_data_to_local(source_dir: str, destination_dir: str):
+    """Copy data from a source to a local destination if needed."""
     if not os.path.exists(source_dir):
-        print(f"⚠️ Source directory not found: {source_dir}")
-        return source_dir
-    
-    # Create local directory name
-    local_dir = f"/content/{os.path.basename(source_dir)}_local"
-    
-    # Check if already copied
-    if os.path.exists(local_dir):
-        print(f"📁 Using existing local copy: {local_dir}")
-        return local_dir
-    
-    print(f"📋 Copying data from Drive to local storage for faster access...")
+        print(f"⚠️ Source directory not found, skipping copy: {source_dir}")
+        return
+
+    if os.path.exists(destination_dir):
+        print(f"📁 Using existing local copy: {destination_dir}")
+        return
+
+    print(f"📋 Copying data to local storage for faster access...")
     print(f"   From: {source_dir}")
-    print(f"   To: {local_dir}")
-    
+    print(f"   To:   {destination_dir}")
     try:
         import shutil
         import time
         start_time = time.time()
-        
-        shutil.copytree(source_dir, local_dir)
-        
+        shutil.copytree(source_dir, destination_dir)
         copy_time = time.time() - start_time
-        print(f"✅ Data copied successfully in {copy_time:.1f} seconds")
-        print(f"🚀 Training will use local copy for faster data loading")
-        
-        return local_dir
+        print(f"✅ Data copied in {copy_time:.1f} seconds.")
     except Exception as e:
         print(f"⚠️ Failed to copy data locally: {e}")
-        print(f"📁 Falling back to Drive path: {source_dir}")
-        return source_dir
+        # If copy fails, we'll get a FileNotFoundError later, which is appropriate.
 
 def get_default_paths():
-    """Get default paths based on environment"""
+    """Get default paths based on environment."""
     if is_colab():
         return {
-            'data_dir_train': '/content/drive/MyDrive/farmers_eye/inputs/training',
-            'data_dir_test': '/content/drive/MyDrive/farmers_eye/inputs/test_balanced',
-            'output_model_dir': '/content/drive/MyDrive/farmers_eye/outputs',
-            'runs_dir': '/content/drive/MyDrive/farmers_eye/runs'
+            'data_dir_train': COLAB_LOCAL_DATA_TRAIN_DEST,
+            'data_dir_test': COLAB_LOCAL_DATA_TEST_DEST,
+            'output_model_dir': COLAB_DRIVE_MODELS_DIR,
+            'runs_dir': COLAB_DRIVE_RUNS_DIR
         }
     else:
         return {
