@@ -3,6 +3,7 @@ import os
 import argparse
 import json
 from typing import Dict, Any
+from datetime import datetime
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -41,8 +42,6 @@ class PreprocessedTensorDataset(Dataset):
         return len(self.tensor_paths)
     
 
-writer = SummaryWriter()
-
 def load_hyperparams(model_name: str, config_file: str | None = None, **overrides) -> Dict[str, Any]:
     """Load hyperparameters with precedence: CLI args > config file > model defaults"""
     
@@ -60,22 +59,31 @@ def load_hyperparams(model_name: str, config_file: str | None = None, **override
     
     return hyperparams
 
-def evaluate(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module) -> float:
+def evaluate(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module, criterion: nn.Module, device: torch.device) -> tuple[float, float]:
     model.eval()
     correct, total = 0, 0
+    running_loss = 0.0
     with torch.no_grad():
         for images, labels in tqdm(loader, desc="Evaluating"):
-            outputs = model(images)
+            with autocast(device_type=device.type):
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+
             _, preds = torch.max(outputs, 1)
             correct += (preds == labels).sum().item()
             total += labels.size(0)
-    return correct / total
+            running_loss += loss.item() * images.size(0)
+    
+    accuracy = correct / total
+    average_loss = running_loss / total
+    return accuracy, average_loss
 
 def train_epoch(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module, device: torch.device, 
                 epoch: int, num_epochs: int, optimizer: optim.Optimizer, criterion: nn.Module, 
-                scaler: GradScaler) -> float:
+                scaler: GradScaler) -> tuple[float, float]:
     model.train()
     running_loss = 0.0
+    correct, total = 0, 0
     total_len = len(loader.dataset) # type: ignore
     iter_len = total_len // (loader.batch_size or 1)
     
@@ -84,13 +92,19 @@ def train_epoch(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module,
         with autocast(device_type=device.type):
             outputs = model(images)
             loss = criterion(outputs, labels)
+
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
+
         running_loss += loss.item() * images.size(0)
+        _, preds = torch.max(outputs, 1)
+        correct += (preds == labels).sum().item()
+        total += labels.size(0)
     
     avg_loss = running_loss / total_len
-    return avg_loss
+    accuracy = correct / total
+    return avg_loss, accuracy
 
 def save_checkpoint(output_model_dir: str, epoch: int, model: nn.Module, 
                    optimizer: optim.Optimizer, scaler: GradScaler):
@@ -137,6 +151,13 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
     print(f"Model: {model_name}")
     print(f"Hyperparameters: {final_hyperparams}")
     torch.cuda.empty_cache()
+
+    # Enhanced TensorBoard setup with unique run directory
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_dir = os.path.join('runs', f'{model_name}_{timestamp}')
+    writer = SummaryWriter(log_dir)
+    writer.add_text('Hyperparameters', str(final_hyperparams))
+
 
     # Load datasets
     train_dataset = PreprocessedTensorDataset(data_dir_train, to_device=device)
@@ -189,27 +210,64 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
 
     # Training loop
     test_every_x_epochs = final_hyperparams['test_every_x_epochs']
+    best_test_acc, train_loss, train_acc = 0.0, 0.0, 0.0
+
+    print(f"\nStarting training from epoch {start_epoch + 1} to {final_hyperparams['num_epochs']}")
+    print(f"Logging to TensorBoard directory: {log_dir}")
+    print("Run 'tensorboard --logdir=runs' to view training progress\n")
     
     for epoch in range(start_epoch + 1, final_hyperparams['num_epochs'] + 1):
-        avg_loss = train_epoch(train_loader, model, device, epoch, 
+        train_loss, train_acc = train_epoch(train_loader, model, device, epoch, 
                               final_hyperparams['num_epochs'], optimizer, criterion, scaler)
-        writer.add_scalar('avg_loss', avg_loss, epoch)
+        writer.add_scalar('Loss/Train', train_loss, epoch)
+        writer.add_scalar('Accuracy/Train', train_acc, epoch)
+        writer.add_scalar('Learning_Rate', optimizer.param_groups[0]['lr'], epoch)
 
+        print(f"Epoch {epoch}/{final_hyperparams['num_epochs']} - "
+              f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
         # Test and save periodically
         if test and test_loader is not None and (epoch % test_every_x_epochs) == 0:
-            test_acc = evaluate(test_loader, model)
-            writer.add_scalar('test_acc', test_acc, epoch)
+            test_acc, test_loss = evaluate(test_loader, model, criterion, device)
+            writer.add_scalar('Loss/Test', test_loss, epoch)
+            writer.add_scalar('Accuracy/Test', test_acc, epoch)
+
+            # Track best accuracy
+            if test_acc > best_test_acc:
+                best_test_acc = test_acc
+                writer.add_scalar('Best_Test_Accuracy', best_test_acc, epoch)
+            
             save_checkpoint(output_model_dir, epoch, model, optimizer, scaler)
-            print(f"Test Accuracy={test_acc:.4f}")
+            print(f"Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f} (Best: {best_test_acc:.4f})")
     
     # Final test if not just done
     final_epoch = final_hyperparams['num_epochs']
     if test and test_loader is not None and (final_epoch % test_every_x_epochs) != 0:
-        test_acc = evaluate(test_loader, model)
-        writer.add_scalar('test_acc', test_acc, final_epoch)
-        print(f"Final Test Accuracy={test_acc:.4f}")
+        test_acc, test_loss = evaluate(test_loader, model, criterion, device)
+        writer.add_scalar('Loss/Test', test_loss, final_epoch)
+        writer.add_scalar('Accuracy/Test', test_acc, final_epoch)
+        
+        if test_acc > best_test_acc:
+            best_test_acc = test_acc
+            writer.add_scalar('Best_Test_Accuracy', best_test_acc, final_epoch)
+        
+        print(f"Final Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f} (Best: {best_test_acc:.4f})")
+
+    writer.add_hparams(
+        hparam_dict={
+            'model': model_name,
+            'learning_rate': final_hyperparams['learning_rate'],
+            'batch_size': final_hyperparams['batch_size'],
+            'num_epochs': final_hyperparams['num_epochs'],
+        },
+        metric_dict={
+            'final_train_loss': train_loss,
+            'final_train_acc': train_acc,
+            'best_test_acc': best_test_acc if test else 0.0,
+        }
+    )
 
     # Cleanup
+    writer.close()
     del train_loader, train_dataset
     if test_dataset:
         del test_dataset
@@ -218,6 +276,10 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
 
     # Save final model
     save_checkpoint(output_model_dir, final_epoch, model, optimizer, scaler)
+
+    print(f"\nTraining completed!")
+    print(f"TensorBoard logs saved to: {log_dir}")
+    print(f"View with: tensorboard --logdir=runs")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train models with custom data.")

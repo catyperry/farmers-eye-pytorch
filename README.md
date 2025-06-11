@@ -32,7 +32,7 @@ The models are registered in the `model.py` file. In the `train.py` file, the mo
 - [x] retrain -> train
 - [x] reduce structure
 - [x] unify training script
-- [ ] use tensorboard for all outputs: training loss, testing loss, training accuracy, testing accuracy
+- [x] use tensorboard for all outputs: training loss, testing loss, training accuracy, testing accuracy
 - [ ] save hyperparamters with model?
 - [-] add other models
   - [x] vit_b_16
