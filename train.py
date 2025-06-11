@@ -2,7 +2,6 @@ import gc
 import os
 import argparse
 import json
-import sys
 from typing import Dict, Any
 from datetime import datetime
 import torch
@@ -54,8 +53,11 @@ COLAB_DRIVE_MODELS_DIR = '/content/drive/MyDrive/models'
 COLAB_DRIVE_RUNS_DIR = '/content/drive/MyDrive/runs'
 
 def is_colab():
-    """Check if running in Google Colab"""
-    return 'google.colab' in sys.modules
+    """
+    Check if running in Google Colab.
+    This is more robust than checking sys.modules, as it works in shell subprocesses.
+    """
+    return 'COLAB_GPU' in os.environ
 
 def setup_colab():
     """Setup Colab-specific configurations"""
