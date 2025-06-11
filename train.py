@@ -54,7 +54,7 @@ def setup_colab():
         # Mount Google Drive
         try:
             from google.colab import drive # type: ignore
-            drive.mount('/content/drive')
+            drive.mount('/content/drive', force_remount=True)
             print("✅ Google Drive mounted successfully")
         except Exception as e:
             print(f"⚠️ Could not mount Google Drive: {e}")
@@ -70,14 +70,52 @@ def setup_colab():
         return True
     return False
 
+def copy_data_to_local(source_dir: str, use_local_copy: bool = True) -> str:
+    """Copy data from Google Drive to local storage for faster access"""
+    if not is_colab() or not use_local_copy:
+        return source_dir
+    
+    if not os.path.exists(source_dir):
+        print(f"⚠️ Source directory not found: {source_dir}")
+        return source_dir
+    
+    # Create local directory name
+    local_dir = f"/content/{os.path.basename(source_dir)}_local"
+    
+    # Check if already copied
+    if os.path.exists(local_dir):
+        print(f"📁 Using existing local copy: {local_dir}")
+        return local_dir
+    
+    print(f"📋 Copying data from Drive to local storage for faster access...")
+    print(f"   From: {source_dir}")
+    print(f"   To: {local_dir}")
+    
+    try:
+        import shutil
+        import time
+        start_time = time.time()
+        
+        shutil.copytree(source_dir, local_dir)
+        
+        copy_time = time.time() - start_time
+        print(f"✅ Data copied successfully in {copy_time:.1f} seconds")
+        print(f"🚀 Training will use local copy for faster data loading")
+        
+        return local_dir
+    except Exception as e:
+        print(f"⚠️ Failed to copy data locally: {e}")
+        print(f"📁 Falling back to Drive path: {source_dir}")
+        return source_dir
+
 def get_default_paths():
     """Get default paths based on environment"""
     if is_colab():
         return {
-            'data_dir_train': '/content/drive/MyDrive/data/train',
-            'data_dir_test': '/content/drive/MyDrive/data/test',
-            'output_model_dir': '/content/drive/MyDrive/models',
-            'runs_dir': '/content/drive/MyDrive/runs'
+            'data_dir_train': '/content/drive/MyDrive/farmers_eye/inputs/training',
+            'data_dir_test': '/content/drive/MyDrive/farmers_eye/inputs/test_balanced',
+            'output_model_dir': '/content/drive/MyDrive/farmers_eye/outputs',
+            'runs_dir': '/content/drive/MyDrive/farmers_eye/runs'
         }
     else:
         return {
@@ -175,10 +213,16 @@ def load_checkpoint(output_model_dir: str, model: nn.Module,
 
 def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None, 
          output_model_dir: str, resume: bool, test: bool, 
-         config_file: str | None = None, runs_dir: str = './runs', **hyperparams):
+         config_file: str | None = None, runs_dir: str = './runs',
+         use_local_copy: bool = True, **hyperparams):
     
     # Setup Colab if needed
     setup_colab()
+    if is_colab() and use_local_copy:
+        print("🔄 Optimizing data access for Colab...")
+        data_dir_train = copy_data_to_local(data_dir_train, use_local_copy)
+        if test and data_dir_test:
+            data_dir_test = copy_data_to_local(data_dir_test, use_local_copy)
     
     # Load and merge hyperparameters
     final_hyperparams = load_hyperparams(model_name, config_file, **hyperparams)
@@ -368,6 +412,10 @@ if __name__ == "__main__":
                        default=defaults['runs_dir'],
                        help="Path to TensorBoard runs directory.")
     
+    # Colab optimization
+    parser.add_argument('--no-local-copy', action='store_true',
+                       help="Disable copying data to local storage in Colab (slower but saves space)")
+    
     # Configuration
     parser.add_argument('--config', type=str, 
                        help="JSON config file with hyperparameters")
@@ -411,5 +459,6 @@ if __name__ == "__main__":
         test=args.test,
         config_file=args.config,
         runs_dir=args.runs_dir,
+        use_local_copy=not args.no_local_copy,
         **hyperparams
     )
