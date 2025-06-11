@@ -43,14 +43,14 @@ class PreprocessedTensorDataset(Dataset):
 
 # --- Path Constants for Colab ---
 # Source paths on Google Drive
-COLAB_DRIVE_DATA_TRAIN_SRC = '/content/drive/MyDrive/data/train'
-COLAB_DRIVE_DATA_TEST_SRC = '/content/drive/MyDrive/data/test'
+COLAB_DRIVE_DATA_TRAIN_SRC = '/content/drive/MyDrive/farmers_eye/inputs/training'
+COLAB_DRIVE_DATA_TEST_SRC = '/content/drive/MyDrive/farmers_eye/inputs/test_balanced'
 # Destination paths on the fast local Colab runtime
 COLAB_LOCAL_DATA_TRAIN_DEST = '/content/data_train_local'
 COLAB_LOCAL_DATA_TEST_DEST = '/content/data_test_local'
 # Persistent output directories on Google Drive
-COLAB_DRIVE_MODELS_DIR = '/content/drive/MyDrive/models'
-COLAB_DRIVE_RUNS_DIR = '/content/drive/MyDrive/runs'
+COLAB_DRIVE_MODELS_DIR = '/content/drive/MyDrive/farmers_eye/outputs'
+COLAB_DRIVE_RUNS_DIR = '/content/drive/MyDrive/farmers_eye/runs'
 
 def is_colab():
     """
