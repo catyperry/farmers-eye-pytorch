@@ -60,15 +60,19 @@ def is_colab():
     return 'COLAB_GPU' in os.environ
 
 def setup_colab():
-    """Setup Colab-specific configurations"""
+    """Verifies the Colab environment and checks for GPU (assumes Drive is pre-mounted)."""
     if is_colab():
-        print("🔧 Setting up Google Colab environment...")
-        try:
-            from google.colab import drive  # type: ignore
-            drive.mount('/content/drive')
-            print("✅ Google Drive mounted successfully")
-        except Exception as e:
-            print(f"⚠️ Could not mount Google Drive: {e}")
+        print("🔧 Verifying Google Colab environment...")
+        if not os.path.exists('/content/drive/MyDrive'):
+            print("⚠️ Google Drive is not mounted. Please mount it in a separate cell before running the script.")
+        else:
+            print("✅ Google Drive appears to be mounted.")
+
+        if torch.cuda.is_available():
+            gpu_name = torch.cuda.get_device_name()
+            print(f"🚀 GPU available: {gpu_name}")
+        else:
+            print("⚠️ No GPU available - training will be slow!")
         return True
     return False
 
