@@ -10,7 +10,7 @@ from tqdm import tqdm
 # the csv contains 85 images per class and creates a balanced test set
 
 # --- Define paths
-base_drive_path = '/content/drive/My Drive/farmers_eye'
+base_drive_path = '.'
 source_image_dir = os.path.join(base_drive_path, 'full_data_set')  # e.g., images/B11/*.jpg
 csv_path = os.path.join(base_drive_path, 'full_data_set/lucasvision_MMEC_testSet85.csv')  # update this
 temp_output_dir = os.path.join(base_drive_path, 'inputs/test_balanced')

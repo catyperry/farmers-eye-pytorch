@@ -2,6 +2,20 @@
 
 This project aims to do a full modern rewrite of [this repository](https://github.com/Momut1/LUCASvision/tree/main) with pytorch.
 
+## Installation
+
+We use UV https://docs.astral.sh/uv/getting-started/installation/ instead of venv/conda/pip.
+
+Install all dependencies and virtual python environment with:
+
+```bash
+uv sync
+```
+
+Then, in Visual Studio Code, open the command palette (Ctrl+Shift+P) and select "Python: Select Interpreter". Choose the interpreter that corresponds to the virtual environment created by UV.
+
+We use python.analysis.typeCheckingMode "standard".
+
 ## Preprocessing
 
 The full and clean data can be found here: https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/DRLL/LUCASvision/
@@ -9,7 +23,7 @@ Images are already sorted via the crop calendar and are ready to use. Additional
 
 ## Model creation
 
-train.py: Uses MobileNet v2 via pytorch to train a CNN. Testing on test data can be switched on if wanted.
+The models are registered in the `model.py` file. In the `train.py` file, the model can be selected via the `--model` argument. There are default hyperparamters in the `model.py` file, but they can be overwritten via the command line arguments.
 
 ## TODOS
 
@@ -17,6 +31,18 @@ train.py: Uses MobileNet v2 via pytorch to train a CNN. Testing on test data can
 - [x] test85 -> balanced
 - [x] retrain -> train
 - [x] reduce structure
-- [ ] save models under dynamic names
-
-### Script migration
+- [x] unify training script
+- [ ] use tensorboard for all outputs: training loss, testing loss, training accuracy, testing accuracy
+- [ ] save hyperparamters with model?
+- [-] add other models
+  - [x] vit_b_16
+  - [ ] foundation model
+  - [ ] resonant model
+  - [ ] convolutional autoencoder
+  - [ ] efficientnet
+- [ ] make colab integration easier
+- [ ] overwrite main branch
+- [ ] Add early stopping based on validation loss
+- [ ] Support for different optimizers via arguments
+- [ ] add augmented data
+- [ ] update notebook
