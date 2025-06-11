@@ -2,6 +2,7 @@ import gc
 import os
 import argparse
 import json
+import sys
 from typing import Dict, Any
 from datetime import datetime
 import torch
@@ -40,7 +41,51 @@ class PreprocessedTensorDataset(Dataset):
 
     def __len__(self):
         return len(self.tensor_paths)
-    
+
+def is_colab():
+    """Check if running in Google Colab"""
+    return 'google.colab' in sys.modules
+
+def setup_colab():
+    """Setup Colab-specific configurations"""
+    if is_colab():
+        print("🔧 Setting up Google Colab environment...")
+        
+        # Mount Google Drive
+        try:
+            from google.colab import drive # type: ignore
+            drive.mount('/content/drive')
+            print("✅ Google Drive mounted successfully")
+        except Exception as e:
+            print(f"⚠️ Could not mount Google Drive: {e}")
+        
+        # Check GPU availability
+        if torch.cuda.is_available():
+            gpu_name = torch.cuda.get_device_name()
+            print(f"🚀 GPU available: {gpu_name}")
+            print(f"   Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+        else:
+            print("⚠️ No GPU available - training will be slow!")
+        
+        return True
+    return False
+
+def get_default_paths():
+    """Get default paths based on environment"""
+    if is_colab():
+        return {
+            'data_dir_train': '/content/drive/MyDrive/data/train',
+            'data_dir_test': '/content/drive/MyDrive/data/test',
+            'output_model_dir': '/content/drive/MyDrive/models',
+            'runs_dir': '/content/drive/MyDrive/runs'
+        }
+    else:
+        return {
+            'data_dir_train': './data/train',
+            'data_dir_test': './data/test',
+            'output_model_dir': './models',
+            'runs_dir': './runs'
+        }
 
 def load_hyperparams(model_name: str, config_file: str | None = None, **overrides) -> Dict[str, Any]:
     """Load hyperparameters with precedence: CLI args > config file > model defaults"""
@@ -130,13 +175,17 @@ def load_checkpoint(output_model_dir: str, model: nn.Module,
 
 def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None, 
          output_model_dir: str, resume: bool, test: bool, 
-         config_file: str | None = None, **hyperparams):
+         config_file: str | None = None, runs_dir: str = './runs', **hyperparams):
+    
+    # Setup Colab if needed
+    setup_colab()
     
     # Load and merge hyperparameters
     final_hyperparams = load_hyperparams(model_name, config_file, **hyperparams)
     
-    # Create output directory
+    # Create output directories
     os.makedirs(output_model_dir, exist_ok=True)
+    os.makedirs(runs_dir, exist_ok=True)
     
     # Validate paths exist
     if not os.path.exists(data_dir_train):
@@ -154,10 +203,9 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
 
     # Enhanced TensorBoard setup with unique run directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_dir = os.path.join('runs', f'{model_name}_{timestamp}')
+    log_dir = os.path.join(runs_dir, f'{model_name}_{timestamp}')
     writer = SummaryWriter(log_dir)
     writer.add_text('Hyperparameters', str(final_hyperparams))
-
 
     # Load datasets
     train_dataset = PreprocessedTensorDataset(data_dir_train, to_device=device)
@@ -214,7 +262,14 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
 
     print(f"\nStarting training from epoch {start_epoch + 1} to {final_hyperparams['num_epochs']}")
     print(f"Logging to TensorBoard directory: {log_dir}")
-    print("Run 'tensorboard --logdir=runs' to view training progress\n")
+    
+    if is_colab():
+        print("📊 To view TensorBoard in Colab, run in a new cell:")
+        print(f"%load_ext tensorboard")
+        print(f"%tensorboard --logdir {runs_dir}")
+    else:
+        print("Run 'tensorboard --logdir=runs' to view training progress")
+    print()
     
     for epoch in range(start_epoch + 1, final_hyperparams['num_epochs'] + 1):
         train_loss, train_acc = train_epoch(train_loader, model, device, epoch, 
@@ -225,6 +280,7 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
 
         print(f"Epoch {epoch}/{final_hyperparams['num_epochs']} - "
               f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
+        
         # Test and save periodically
         if test and test_loader is not None and (epoch % test_every_x_epochs) == 0:
             test_acc, test_loss = evaluate(test_loader, model, criterion, device)
@@ -279,9 +335,18 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
 
     print(f"\nTraining completed!")
     print(f"TensorBoard logs saved to: {log_dir}")
-    print(f"View with: tensorboard --logdir=runs")
+    
+    if is_colab():
+        print("📊 View TensorBoard in Colab with:")
+        print(f"%load_ext tensorboard")
+        print(f"%tensorboard --logdir {runs_dir}")
+    else:
+        print(f"View with: tensorboard --logdir={runs_dir}")
 
 if __name__ == "__main__":
+    # Get default paths based on environment
+    defaults = get_default_paths()
+    
     parser = argparse.ArgumentParser(description="Train models with custom data.")
     
     # Model selection
@@ -289,13 +354,19 @@ if __name__ == "__main__":
                        choices=list(MODEL_REGISTRY.keys()),
                        help="Model architecture to use")
     
-    # Data paths
-    parser.add_argument('--data_dir_train', type=str, required=True,
+    # Data paths with environment-aware defaults
+    parser.add_argument('--data_dir_train', type=str, 
+                       default=defaults['data_dir_train'],
                        help="Path to the input training data directory.")
     parser.add_argument('--data_dir_test', type=str,
+                       default=defaults['data_dir_test'],
                        help="Path to the input test data directory.")
-    parser.add_argument('--output_model_dir', type=str, required=True,
+    parser.add_argument('--output_model_dir', type=str, 
+                       default=defaults['output_model_dir'],
                        help="Path to the directory for the models to save (and resume).")
+    parser.add_argument('--runs_dir', type=str,
+                       default=defaults['runs_dir'],
+                       help="Path to TensorBoard runs directory.")
     
     # Configuration
     parser.add_argument('--config', type=str, 
@@ -339,5 +410,6 @@ if __name__ == "__main__":
         resume=args.resume,
         test=args.test,
         config_file=args.config,
+        runs_dir=args.runs_dir,
         **hyperparams
     )

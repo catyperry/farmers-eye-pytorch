@@ -40,9 +40,9 @@ The models are registered in the `model.py` file. In the `train.py` file, the mo
   - [ ] resonant model
   - [ ] convolutional autoencoder
   - [ ] efficientnet
-- [ ] make colab integration easier
-- [ ] overwrite main branch
+- [x] make colab integration easier
+- [x] overwrite main branch
 - [ ] Add early stopping based on validation loss
 - [ ] Support for different optimizers via arguments
 - [ ] add augmented data
-- [ ] update notebook
+- [x] update notebook
