@@ -9,7 +9,7 @@ We use UV https://docs.astral.sh/uv/getting-started/installation/ instead of ven
 Install all dependencies and virtual python environment with:
 
 ```bash
-uv sync
+uv sync --extra cu128
 ```
 
 Then, in Visual Studio Code, open the command palette (Ctrl+Shift+P) and select "Python: Select Interpreter". Choose the interpreter that corresponds to the virtual environment created by UV.

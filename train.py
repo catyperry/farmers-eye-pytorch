@@ -12,6 +12,8 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.amp.autocast_mode import autocast
 from torch.amp.grad_scaler import GradScaler
 from tqdm import tqdm
+import csv
+import pandas as pd
 
 from models import MODEL_REGISTRY, MODEL_NAME
 
@@ -206,7 +208,7 @@ def load_checkpoint(output_model_dir: str, model: nn.Module,
 def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None, 
          output_model_dir: str, resume: bool, test: bool, 
          config_file: str | None = None, runs_dir: str = './runs',
-         use_local_copy: bool = True, **hyperparams):
+         use_local_copy: bool = True, metric: bool = False, **hyperparams):
     
     # Setup Colab if needed
     setup_colab()
@@ -222,6 +224,8 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
     # Create output directories
     os.makedirs(output_model_dir, exist_ok=True)
     os.makedirs(runs_dir, exist_ok=True)
+    csv_dir = os.path.join(output_model_dir, 'csv')
+    os.makedirs(csv_dir, exist_ok=True)
     
     # Validate paths exist
     if not os.path.exists(data_dir_train):
@@ -236,12 +240,14 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
     print(f"Model: {model_name}")
     print(f"Hyperparameters: {final_hyperparams}")
     torch.cuda.empty_cache()
-
     # Enhanced TensorBoard setup with unique run directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_dir = os.path.join(runs_dir, f'{model_name}_{timestamp}')
     writer = SummaryWriter(log_dir)
     writer.add_text('Hyperparameters', str(final_hyperparams))
+
+    # Logging in .csv 
+    metrics_log = []
 
     # Load datasets
     train_dataset = PreprocessedTensorDataset(data_dir_train, to_device=device)
@@ -306,14 +312,15 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
     else:
         print("Run 'tensorboard --logdir=runs' to view training progress")
     print()
+
     
+
     for epoch in range(start_epoch + 1, final_hyperparams['num_epochs'] + 1):
         train_loss, train_acc = train_epoch(train_loader, model, device, epoch, 
                               final_hyperparams['num_epochs'], optimizer, criterion, scaler)
         writer.add_scalar('Loss/Train', train_loss, epoch)
         writer.add_scalar('Accuracy/Train', train_acc, epoch)
         writer.add_scalar('Learning_Rate', optimizer.param_groups[0]['lr'], epoch)
-
         print(f"Epoch {epoch}/{final_hyperparams['num_epochs']} - "
               f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
         
@@ -322,27 +329,42 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
             test_acc, test_loss = evaluate(test_loader, model, criterion, device)
             writer.add_scalar('Loss/Test', test_loss, epoch)
             writer.add_scalar('Accuracy/Test', test_acc, epoch)
-
+            
             # Track best accuracy
             if test_acc > best_test_acc:
                 best_test_acc = test_acc
                 writer.add_scalar('Best_Test_Accuracy', best_test_acc, epoch)
             
-            save_checkpoint(output_model_dir, epoch, model, optimizer, scaler)
+            #save_checkpoint(output_model_dir, epoch, model, optimizer, scaler)
             print(f"Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f} (Best: {best_test_acc:.4f})")
-    
+        
+        metrics_log.append({
+            'epoch': epoch,
+            'train_loss': train_loss,
+            'train_acc': train_acc,
+            'test_loss': test_loss if test and (epoch % test_every_x_epochs == 0) else None,
+            'test_acc': test_acc if test and (epoch % test_every_x_epochs == 0) else None,
+            'best_test_acc': best_test_acc
+        })  
     # Final test if not just done
     final_epoch = final_hyperparams['num_epochs']
     if test and test_loader is not None and (final_epoch % test_every_x_epochs) != 0:
         test_acc, test_loss = evaluate(test_loader, model, criterion, device)
         writer.add_scalar('Loss/Test', test_loss, final_epoch)
         writer.add_scalar('Accuracy/Test', test_acc, final_epoch)
-        
         if test_acc > best_test_acc:
             best_test_acc = test_acc
             writer.add_scalar('Best_Test_Accuracy', best_test_acc, final_epoch)
-        
         print(f"Final Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f} (Best: {best_test_acc:.4f})")
+
+        metrics_log.append({
+            'epoch': epoch,
+            'train_loss': train_loss,
+            'train_acc': train_acc,
+            'test_loss': test_loss if test and (epoch % test_every_x_epochs == 0) else None,
+            'test_acc': test_acc if test and (epoch % test_every_x_epochs == 0) else None,
+            'best_test_acc': best_test_acc
+        }) 
 
     writer.add_hparams(
         hparam_dict={
@@ -357,9 +379,29 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
             'best_test_acc': best_test_acc if test else 0.0,
         }
     )
+    
 
     # Cleanup
     writer.close()
+
+    # Save to .csv file
+    if metric:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        csv_file = os.path.join(csv_dir, f'metrics_{timestamp}_{model_name}.csv')
+        # Convert metrics log to DataFrame
+        metrics_df = pd.DataFrame(metrics_log)
+
+        # Write hyperparams at the top manually
+        with open(csv_file, 'w') as f:
+            f.write(f'Metrics for {model_name} at {timestamp}\n')
+            f.write('Hyperparameters\n')
+            for key, value in final_hyperparams.items():
+                f.write(f'{key},{value}\n')
+            f.write('\n')  # Blank line before metrics
+
+        # Append metrics dataframe to the CSV
+        metrics_df.to_csv(csv_file, mode='a', index=False)
+
     del train_loader, train_dataset
     if test_dataset:
         del test_dataset
@@ -428,6 +470,10 @@ if __name__ == "__main__":
     parser.add_argument('--test', action='store_true',
                        help="Enable testing during training")
     
+    # Logging metrics to .csv option 
+    parser.add_argument('--metric', action='store_true',
+                        help="Enable storing results in .csv after each epoch")
+    
     args = parser.parse_args()
     
     # Validate test requirements
@@ -451,6 +497,7 @@ if __name__ == "__main__":
         test=args.test,
         config_file=args.config,
         runs_dir=args.runs_dir,
+        metric=args.metric, 
         use_local_copy=not args.no_local_copy,
         **hyperparams
     )
