@@ -111,8 +111,8 @@ def get_default_paths():
         }
     else:
         return {
-            'data_dir_train': './inputs/train',
-            'data_dir_test': './inputs/test',
+            'data_dir_train': './inputs/data_train_local',
+            'data_dir_test': './inputs/data_test_local',
             'output_model_dir': './outputs',
             'runs_dir': './runs'
         }

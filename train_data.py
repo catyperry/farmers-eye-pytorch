@@ -10,7 +10,7 @@ import pandas as pd
 base_drive_path = '.'
 source_image_dir = os.path.join(base_drive_path, 'full_data_set')  # e.g., images/B11/*.jpg
 csv_path = os.path.join(base_drive_path, 'full_data_set/lucasvision_MMEC_trainSet.csv')  # update this
-temp_output_dir = os.path.join(base_drive_path, 'inputs/training')
+temp_output_dir = os.path.join(base_drive_path, 'inputs/train')
 
 os.makedirs(temp_output_dir, exist_ok=True)
 
