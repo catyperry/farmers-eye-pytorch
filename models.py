@@ -108,11 +108,42 @@ class ViTBaseConfig(ModelConfig):
             'test_every_x_epochs': 20
         }
 
+class ResNet50Config(ModelConfig):
+    def create_model(self, num_classes: int) -> nn.Module:
+        from torchvision import models
+        from torchvision.models import ResNet50_Weights
+
+        model = models.resnet50(weights=ResNet50_Weights.DEFAULT)
+        # Freeze all layers
+        for param in model.parameters():
+            param.requires_grad = False
+        # Replace the final fully connected layer
+        model.fc = nn.Linear(model.fc.in_features, num_classes)
+        return model
+
+    def get_trainable_params(self, model: nn.Module) -> Iterator[Parameter]:
+        classifier_layer = model.fc  # type: ignore
+        if not isinstance(classifier_layer, nn.Linear):
+            raise TypeError("Expected final layer to be nn.Linear")
+        return classifier_layer.parameters()
+
+    def create_optimizer(self, model: nn.Module, lr: float) -> optim.Optimizer:
+        return optim.SGD(self.get_trainable_params(model), lr=lr, momentum=0.0)
+
+    def get_default_hyperparams(self) -> Dict[str, Any]:
+        return {
+            'learning_rate': 0.0035148759,
+            'batch_size': 240,
+            'num_epochs': 3000,
+            'test_every_x_epochs': 20
+        }
+
 # Registry
 MODEL_REGISTRY = {
     'mobilenet_v2': MobileNetV2Config(),
     'vit_huge_patch14_224': ViTHugeConfig(),
     'vit_base_patch16_224': ViTBaseConfig(),
+    'resnet50': ResNet50Config(),
 }
 
-MODEL_NAME = Literal['mobilenet_v2', 'vit_huge_patch14_224', 'vit_base_patch16_224']
+MODEL_NAME = Literal['mobilenet_v2', 'vit_huge_patch14_224', 'vit_base_patch16_224', 'resnet50']
