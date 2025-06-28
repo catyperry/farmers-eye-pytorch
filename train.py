@@ -306,6 +306,14 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
     else:
         print("Run 'tensorboard --logdir=runs' to view training progress")
     print()
+
+    # Test at Epoch 0 if testing is enabled
+    if test and test_loader is not None and start_epoch == 0:
+        test_acc_0, test_loss_0 = evaluate(test_loader, model, criterion, device)
+        writer.add_scalar('Loss/Test', test_loss_0, 0)
+        writer.add_scalar('Accuracy/Test', test_acc_0, 0)
+        best_test_acc = test_acc_0
+        print(f"Epoch 0 - Test Loss: {test_loss_0:.4f}, Test Acc: {test_acc_0:.4f}")
     
     for epoch in range(start_epoch + 1, final_hyperparams['num_epochs'] + 1):
         train_loss, train_acc = train_epoch(train_loader, model, device, epoch, 
