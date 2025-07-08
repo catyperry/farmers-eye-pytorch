@@ -276,7 +276,8 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
 
     # Create model and optimizer
     model = model_config.create_model(num_classes)
-    optimizer = model_config.create_optimizer(model, optimizer_type=optimizer_type, lr=final_hyperparams['learning_rate'], momentum=momentum)
+    optimizer = model_config.create_optimizer(model, optimizer_type=optimizer_type, lr=final_hyperparams['learning_rate'], momentum=momentum, 
+                                             weight_decay=final_hyperparams.get('weight_decay', 0.0))
 
     scaler = GradScaler()
     start_epoch = 0
@@ -410,6 +411,8 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
             f.write(f'Optimizer, {optimizer_type}\n')
             if optimizer_type == "sgd":
                 f.write(f'Momentum, {momentum}\n')
+            if optimizer_type == "adamw":
+                f.write(f'Weight Decay, {final_hyperparams.get("weight_decay", 0.0)}\n')
             f.write('Hyperparameters\n')
             for key, value in final_hyperparams.items():
                 f.write(f'{key},{value}\n')
@@ -450,7 +453,7 @@ if __name__ == "__main__":
                        help="Model architecture to use")
     
     # Optimizer selection
-    parser.add_argument("--optimizer", type=str, default="adam", choices=["adam", "sgd"],
+    parser.add_argument("--optimizer", type=str, default="adam", choices=["adam", "sgd", "adamw"],
                         help="Optimizer to use (default: adam).")
     
     # Choose momentum, only for SGD
@@ -488,6 +491,8 @@ if __name__ == "__main__":
                        help="Number of epochs override")
     parser.add_argument('--test_every_x_epochs', type=int,
                        help="Test frequency override")
+    parser.add_argument('--weight_decay', type=float,
+                       help="Weight decay for AdamW optimizer (default: 0.01)")
     
     # Training options
     parser.add_argument('--resume', action='store_true',
@@ -511,6 +516,7 @@ if __name__ == "__main__":
         'batch_size': args.batch_size,
         'num_epochs': args.num_epochs,
         'test_every_x_epochs': args.test_every_x_epochs,
+        'weight_decay': args.weight_decay,
     }
     
     main(
@@ -526,5 +532,6 @@ if __name__ == "__main__":
         use_local_copy=not args.no_local_copy,
         optimizer_type=args.optimizer,
         momentum=args.momentum, 
+        weight_decay=args.weight_decay,  # Only used for AdamW
         **hyperparams
     )
