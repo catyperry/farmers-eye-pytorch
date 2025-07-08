@@ -28,7 +28,7 @@ def get_default_paths_for_preprocessing():
     else:
         # For local development, we use local relative paths.
         return {
-            'train_data': './inputs/train',
+            'train_data': './inputs/training',   ####### --- Changed to "training" @silke -----#######
             'test_balanced_data': './inputs/test_balanced',
             'processed_train_data': './inputs/data_train_local',
             'processed_test_balanced_data': './inputs/data_test_local',
