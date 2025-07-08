@@ -130,10 +130,8 @@ def load_hyperparams(model_name: str, config_file: str | None = None, **override
         with open(config_file) as f:
             file_config = json.load(f)
         hyperparams.update(file_config)
-    
     # Override with CLI arguments (only non-None values)
     hyperparams.update({k: v for k, v in overrides.items() if v is not None})
-    
     return hyperparams
 
 def evaluate(loader: DataLoader[PreprocessedTensorDataset], model: nn.Module, criterion: nn.Module, device: torch.device) -> tuple[float, float]:
@@ -208,7 +206,8 @@ def load_checkpoint(output_model_dir: str, model: nn.Module,
 def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None, 
          output_model_dir: str, resume: bool, test: bool, 
          config_file: str | None = None, runs_dir: str = './runs',
-         use_local_copy: bool = True, metric: bool = False, **hyperparams):
+         use_local_copy: bool = True, metric: bool = False, optimizer_type: str = "adam",
+        momentum: float = 0.0, **hyperparams):
     
     # Setup Colab if needed
     setup_colab()
@@ -275,7 +274,8 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
 
     # Create model and optimizer
     model = model_config.create_model(num_classes)
-    optimizer = model_config.create_optimizer(model, final_hyperparams['learning_rate'])
+    optimizer = model_config.create_optimizer(model, optimizer_type=optimizer_type, lr=final_hyperparams['learning_rate'], momentum=momentum)
+
     scaler = GradScaler()
     start_epoch = 0
 
@@ -394,6 +394,9 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
         # Write hyperparams at the top manually
         with open(csv_file, 'w') as f:
             f.write(f'Metrics for {model_name} at {timestamp}\n')
+            f.write(f'Optimizer, {optimizer_type}\n')
+            if optimizer_type == "sgd":
+                f.write(f'Momentum, {momentum}\n')
             f.write('Hyperparameters\n')
             for key, value in final_hyperparams.items():
                 f.write(f'{key},{value}\n')
@@ -431,6 +434,14 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, required=True, 
                        choices=list(MODEL_REGISTRY.keys()),
                        help="Model architecture to use")
+    
+    # Optimizer selection
+    parser.add_argument("--optimizer", type=str, default="adam", choices=["adam", "sgd"],
+                        help="Optimizer to use (default: adam).")
+    
+    # Choose momentum, only for SGD
+    parser.add_argument("--momentum", type=float, default=0.0,
+                        help="Momentum for SGD optimizer (ignored if using Adam).")
     
     # Data paths with environment-aware defaults
     parser.add_argument('--data_dir_train', type=str, 
@@ -499,5 +510,7 @@ if __name__ == "__main__":
         runs_dir=args.runs_dir,
         metric=args.metric, 
         use_local_copy=not args.no_local_copy,
+        optimizer_type=args.optimizer,
+        momentum=args.momentum, 
         **hyperparams
     )
