@@ -14,6 +14,7 @@ from torch.amp.grad_scaler import GradScaler
 from tqdm import tqdm
 import csv
 import pandas as pd
+import time
 
 from models import MODEL_REGISTRY, MODEL_NAME
 
@@ -208,6 +209,7 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
          config_file: str | None = None, runs_dir: str = './runs',
          use_local_copy: bool = True, metric: bool = False, optimizer_type: str = "adam",
         momentum: float = 0.0, **hyperparams):
+    start_time = time.time()
     
     # Setup Colab if needed
     setup_colab()
@@ -398,6 +400,10 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
         # Convert metrics log to DataFrame
         metrics_df = pd.DataFrame(metrics_log)
 
+        #Calculate training duration
+        elapsed_time = time.time() - start_time
+        elapsed_str = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+
         # Write hyperparams at the top manually
         with open(csv_file, 'w') as f:
             f.write(f'Metrics for {model_name} at {timestamp}\n')
@@ -407,6 +413,7 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
             f.write('Hyperparameters\n')
             for key, value in final_hyperparams.items():
                 f.write(f'{key},{value}\n')
+            f.write(f'Training Time (HH:MM:SS),{elapsed_str}\n')
             f.write('\n')  # Blank line before metrics
 
         # Append metrics dataframe to the CSV
