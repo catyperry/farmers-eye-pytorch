@@ -134,8 +134,19 @@ class MobileNetV2Config(ModelConfig):
             raise TypeError("Expected classifier layer to be nn.Linear")
         return classifier_layer.parameters()
     
-    def create_optimizer(self, model: nn.Module, lr: float) -> optim.Optimizer:
-        return optim.SGD(self.get_trainable_params(model), lr=lr, momentum=0.0)
+    def create_optimizer(self, model: nn.Module, optimizer_type: str = "sgd", lr: float = 0.001, momentum: float = 0.0, weight_decay: float = 0.01) -> optim.Optimizer:
+        trainable_params = self.get_trainable_params(model)
+        if optimizer_type.lower() == "sgd":
+            print(f"Using optimizer: SGD with momentum {momentum}")
+            return optim.SGD(trainable_params, lr=lr, momentum=momentum)
+        elif optimizer_type.lower() == "adam":
+            print(f"Using optimizer: Adam")
+            return optim.Adam(trainable_params, lr=lr)
+        elif optimizer_type.lower() == "adamw":
+            print(f"Using optimizer: AdamW (Adam with weight decay {weight_decay})")
+            return optim.AdamW(trainable_params, lr=lr, weight_decay=weight_decay)
+        else:
+            raise ValueError(f"Unsupported optimizer type: {optimizer_type}. Supported: 'sgd', 'adam', 'adamw'")
     
     def get_default_hyperparams(self) -> Dict[str, Any]:
         return {
@@ -162,8 +173,19 @@ class ViTHugeConfig(ModelConfig):
         vit_model = model  # type: ignore
         return vit_model.head.parameters()  # type: ignore
     
-    def create_optimizer(self, model: nn.Module, lr: float) -> optim.Optimizer:
-        return optim.SGD(self.get_trainable_params(model), lr=lr, momentum=0.0)
+    def create_optimizer(self, model: nn.Module, optimizer_type: str = "sgd", lr: float = 0.001, momentum: float = 0.0, weight_decay: float = 0.01) -> optim.Optimizer:
+        trainable_params = self.get_trainable_params(model)
+        if optimizer_type.lower() == "sgd":
+            print(f"Using optimizer: SGD with momentum {momentum}")
+            return optim.SGD(trainable_params, lr=lr, momentum=momentum)
+        elif optimizer_type.lower() == "adam":
+            print(f"Using optimizer: Adam")
+            return optim.Adam(trainable_params, lr=lr)
+        elif optimizer_type.lower() == "adamw":
+            print(f"Using optimizer: AdamW (Adam with weight decay {weight_decay})")
+            return optim.AdamW(trainable_params, lr=lr, weight_decay=weight_decay)
+        else:
+            raise ValueError(f"Unsupported optimizer type: {optimizer_type}. Supported: 'sgd', 'adam', 'adamw'")
     
     def get_default_hyperparams(self) -> Dict[str, Any]:
         return {
@@ -210,8 +232,7 @@ class ViTBaseConfig(ModelConfig):
             'learning_rate': 0.0035148759,
             'batch_size': 1000,
             'num_epochs': 10,
-            'test_every_x_epochs': 20,
-            'weight_decay': 0.01
+            'test_every_x_epochs': 20
         }
 
 class ResNet50Config(ModelConfig):
@@ -233,8 +254,20 @@ class ResNet50Config(ModelConfig):
             raise TypeError("Expected final layer to be nn.Linear")
         return classifier_layer.parameters()
 
-    def create_optimizer(self, model: nn.Module, lr: float) -> optim.Optimizer:
-        return optim.SGD(self.get_trainable_params(model), lr=lr, momentum=0.0)
+    def create_optimizer(self, model: nn.Module, optimizer_type: str = "adam", lr: float = 0.001, momentum: float = 0.0, weight_decay: float = 0.01) -> optim.Optimizer:
+        trainable_params = self.get_trainable_params(model)
+        if optimizer_type.lower() == "sgd":
+            print(f"Using optimizer: SGD with momentum {momentum}")
+            return optim.SGD(trainable_params, lr=lr, momentum=momentum)
+        elif optimizer_type.lower() == "adam":
+            print(f"Using optimizer: Adam")
+            return optim.Adam(trainable_params, lr=lr)
+        elif optimizer_type.lower() == "adamw":
+            print(f"Using optimizer: AdamW (Adam with weight decay {weight_decay})")
+            return optim.AdamW(trainable_params, lr=lr, weight_decay=weight_decay)
+        else:
+            raise ValueError(f"Unsupported optimizer type: {optimizer_type}. Supported: 'sgd', 'adam', 'adamw'")
+        
 
     def get_default_hyperparams(self) -> Dict[str, Any]:
         return {

@@ -109,14 +109,14 @@ def get_default_paths():
         return {
             'data_dir_train': COLAB_LOCAL_DATA_TRAIN_DEST,
             'data_dir_test': COLAB_LOCAL_DATA_TEST_DEST,
-            'output_model_dir': COLAB_DRIVE_MODELS_DIR,
+            'output_dir': COLAB_DRIVE_MODELS_DIR,
             'runs_dir': COLAB_DRIVE_RUNS_DIR
         }
     else:
         return {
             'data_dir_train': './inputs/data_train_local',
             'data_dir_test': './inputs/data_test_local',
-            'output_model_dir': './outputs',
+            'output_dir': './outputs',
             'runs_dir': './runs'
         }
 
@@ -205,9 +205,9 @@ def load_checkpoint(output_model_dir: str, model: nn.Module,
     return start_epoch
 
 def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None, 
-         output_model_dir: str, resume: bool, test: bool, 
+         output_dir: str, resume: bool, test: bool, 
          config_file: str | None = None, runs_dir: str = './runs',
-         use_local_copy: bool = True, metric: bool = False, optimizer_type: str = "adam",
+         use_local_copy: bool = True, metric: bool = False, optimizer_type: str = "sgd",
         momentum: float = 0.0, **hyperparams):
     start_time = time.time()
     
@@ -223,11 +223,13 @@ def main(model_name: MODEL_NAME, data_dir_train: str, data_dir_test: str | None,
     final_hyperparams = load_hyperparams(model_name, config_file, **hyperparams)
     
     # Create output directories
-    os.makedirs(output_model_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     os.makedirs(runs_dir, exist_ok=True)
-    csv_dir = os.path.join(output_model_dir, 'csv')
+    csv_dir = os.path.join(output_dir, 'csv')
     os.makedirs(csv_dir, exist_ok=True)
-    
+    output_model_dir = os.path.join(output_dir, 'model_output')
+    os.makedirs(output_model_dir, exist_ok=True)
+
     # Validate paths exist
     if not os.path.exists(data_dir_train):
         raise FileNotFoundError(f"Training data directory not found: {data_dir_train}")
@@ -453,8 +455,8 @@ if __name__ == "__main__":
                        help="Model architecture to use")
     
     # Optimizer selection
-    parser.add_argument("--optimizer", type=str, default="adam", choices=["adam", "sgd", "adamw"],
-                        help="Optimizer to use (default: adam).")
+    parser.add_argument("--optimizer", type=str, default="sgd", choices=["adam", "sgd", "adamw"],
+                        help="Optimizer to use (default: sgd).")
     
     # Choose momentum, only for SGD
     parser.add_argument("--momentum", type=float, default=0.0,
@@ -467,9 +469,9 @@ if __name__ == "__main__":
     parser.add_argument('--data_dir_test', type=str,
                        default=defaults['data_dir_test'],
                        help="Path to the input test data directory.")
-    parser.add_argument('--output_model_dir', type=str, 
-                       default=defaults['output_model_dir'],
-                       help="Path to the directory for the models to save (and resume).")
+    parser.add_argument('--output_dir', type=str, 
+                       default=defaults['output_dir'],
+                       help="Path to the directory for the csv file and model output to save (and resume).")
     parser.add_argument('--runs_dir', type=str,
                        default=defaults['runs_dir'],
                        help="Path to TensorBoard runs directory.")
@@ -523,7 +525,7 @@ if __name__ == "__main__":
         model_name=args.model,
         data_dir_train=args.data_dir_train,
         data_dir_test=args.data_dir_test,
-        output_model_dir=args.output_model_dir,
+        output_dir=args.output_dir,
         resume=args.resume,
         test=args.test,
         config_file=args.config,
