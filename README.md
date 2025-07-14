@@ -53,27 +53,3 @@ Images are already sorted via the crop calendar and are ready to use. Additional
 ## Model creation
 
 The models are registered in the `model.py` file. In the `train.py` file, the model can be selected via the `--model` argument. There are default hyperparamters in the `model.py` file, which can be overwritten via the command line arguments.
-
-## TODOS
-
-- [x] use cases on top of file
-- [x] test85 -> balanced
-- [x] retrain -> train
-- [x] reduce structure
-- [x] unify training script
-- [x] use tensorboard for all outputs: training loss, testing loss, training accuracy, testing accuracy
-- [ ] save hyperparamters with model?
-- [-] add other models
-  - [x] vit_b_16
-  - [ ] foundation model
-  - [x] resonant model
-  - [ ] convolutional autoencoder
-  - [ ] efficientnet
-- [x] hyperparameter tuning for vit
-- [x] make colab integration easier
-- [x] overwrite main branch
-- [ ] Add early stopping based on validation loss
-- [ ] automatically delete old models during training
-- [ ] Support for different optimizers via arguments
-- [ ] add augmented data
-- [x] update notebook
